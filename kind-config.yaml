@@ -1,0 +1,86 @@
+# Merged Kind config for the microscaler shared dev cluster (default name `kind` → context `kind-kind`).
+# Single cluster; apps use namespaces (pricewhisperer, hauliage, tiffany, …). Platform: data, observability.
+# When adding host ports, check for conflicts with brrtrouter ports validate / port-registry.
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.34.3
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # PriceWhisperer — API
+      - containerPort: 30080
+        hostPort: 8000
+        protocol: TCP
+      # BRRTRouter — Pet Store API
+      - containerPort: 31080
+        hostPort: 8080
+        protocol: TCP
+      # Grafana (BRRTRouter vs Hauliage use different host ports)
+      - containerPort: 31300
+        hostPort: 3000
+        protocol: TCP
+      - containerPort: 30002
+        hostPort: 3002
+        protocol: TCP
+      # Loki / Pyroscope / OTEL
+      - containerPort: 31310
+        hostPort: 3100
+        protocol: TCP
+      - containerPort: 31404
+        hostPort: 4040
+        protocol: TCP
+      - containerPort: 31417
+        hostPort: 4317
+        protocol: TCP
+      - containerPort: 31418
+        hostPort: 4318
+        protocol: TCP
+      - containerPort: 31889
+        hostPort: 8889
+        protocol: TCP
+      # PostgreSQL NodePort 30432 — use host 5433 so app Tilts can keep port_forward 5432:5432 without bind conflicts
+      - containerPort: 30432
+        hostPort: 5433
+        protocol: TCP
+      # Redis
+      - containerPort: 30379
+        hostPort: 6379
+        protocol: TCP
+      # PriceWhisperer mocks / MinIO / Pact
+      - containerPort: 30497
+        hostPort: 7497
+        protocol: TCP
+      - containerPort: 30999
+        hostPort: 9999
+        protocol: TCP
+      - containerPort: 30900
+        hostPort: 9000
+        protocol: TCP
+      - containerPort: 30901
+        hostPort: 9001
+        protocol: TCP
+      - containerPort: 30929
+        hostPort: 9292
+        protocol: TCP
+      # Prometheus (BRRTRouter vs PW / Hauliage ranges)
+      - containerPort: 31090
+        hostPort: 9090
+        protocol: TCP
+      - containerPort: 30091
+        hostPort: 9091
+        protocol: TCP
+      # Jaeger
+      - containerPort: 31166
+        hostPort: 16686
+        protocol: TCP
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"

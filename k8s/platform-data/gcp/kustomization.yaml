@@ -1,0 +1,20 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+# =================================
+# For the complete canonical reference of ALL services, ports, NodePorts, and resource allocations,
+# see: docs/infrastructure/services-ports.md
+#
+# ALWAYS check docs/infrastructure/services-ports.md before adding new services or changing ports
+# to prevent port conflicts.
+#
+# GCP Emulators Kustomization
+# Provides local emulation of Google Cloud Platform services for development
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - pubsub-emulator.yaml
+  - datastore-emulator.yaml
+  - bigtable-emulator.yaml
+  - cloud-functions.yaml
+

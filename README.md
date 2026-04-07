@@ -4,7 +4,7 @@ Single **default** Kind cluster for local development when you cannot run one cl
 
 | Namespace        | Purpose                                      |
 |-----------------|----------------------------------------------|
-| `data`          | Databases, object storage, shared data plane |
+| `data`          | Databases, object storage, Mailpit/MailHog/Inbucket, shared data plane |
 | `observability` | Metrics, logs, traces, dashboards            |
 
 ## Prerequisites
@@ -64,10 +64,11 @@ When you migrate an app from a dedicated Kind cluster to the shared one, update 
 ## What `kustomize ./k8s` deploys
 
 1. **`StorageClass` `local-storage`** — required by Supabase PVs/PVCs.
-2. **Data plane** — [`microscaler-supabase/k8s/overlays/shared-kind`](../microscaler-supabase/k8s/overlays/shared-kind) → full [`k8s/data`](../microscaler-supabase/k8s/data) stack (Postgres, parquet lake, exporters, …) in namespace **`data`**, with PV node affinity **`kind-control-plane`**.
-3. **Observability** — `k8s/observability/`: namespace **`observability`**, **Prometheus**, **Loki**, **Grafana** (datasources for Prometheus + Loki), **OpenTelemetry Collector** (OTLP + Prometheus metrics exporter on `:9464`).
+2. **Supabase data plane** — [`microscaler-supabase/k8s/overlays/shared-kind`](../microscaler-supabase/k8s/overlays/shared-kind) → Postgres, parquet lake, exporters, … in namespace **`data`**.
+3. **Platform data** — [`k8s/platform-data/`](k8s/platform-data) (Redis, MinIO, Pact, Fluvio, Faktory, GCP emulators, PVs/PVCs, monitoring PVs). Source of truth for these manifests lives in **this repo** (moved out of PriceWhisperer).
+4. **Observability** — `k8s/observability/`: namespace **`observability`**, **Prometheus**, **Loki**, **Grafana**, **OpenTelemetry Collector**.
 
-Requires a side-by-side clone of **`microscaler-supabase`** next to **`shared-kind-cluster`** (same parent as in this repo layout).
+Requires a side-by-side clone of **`microscaler-supabase`** next to **`shared-kind-cluster`** (same parent folder as in this monorepo layout). PriceWhisperer is optional for kustomize (platform-data is self-contained here).
 
 ## Layout
 
@@ -76,7 +77,7 @@ Requires a side-by-side clone of **`microscaler-supabase`** next to **`shared-ki
 | `justfile`        | `just dev`, cluster create/delete, registry, context, Tilt |
 | `kind-config.yaml`| Merged `extraPortMappings` for app dev (see kind-config comments) |
 | `Tiltfile`        | `kustomize ./k8s` (data + observability) |
-| `k8s/kustomization.yaml` | Composes StorageClass + Supabase overlay + `observability/` |
+| `k8s/kustomization.yaml` | Composes StorageClass + Supabase overlay + **`platform-data/`** + `observability/` |
 | `k8s/observability/` | Prometheus, Loki, Grafana, OTel |
 
 ## App repositories

@@ -1,0 +1,24 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+# =================================
+# For the complete canonical reference of ALL services, ports, NodePorts, and resource allocations,
+# see: docs/infrastructure/services-ports.md
+#
+# ALWAYS check docs/infrastructure/services-ports.md before adding new services or changing ports
+# to prevent port conflicts.
+#
+# PersistentVolumeClaims for Scheduling Stack
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: faktory-server-storage-pv-claim
+  namespace: scheduling
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 5Gi
+

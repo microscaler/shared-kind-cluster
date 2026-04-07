@@ -1,0 +1,23 @@
+# Dev platform for namespace `data`, `pipeline`, `scheduling`, `gcp` (moved from PriceWhisperer/k8s).
+# Consumed only by shared-kind-cluster — not by PriceWhisperer Tilt.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - pipeline/fluvio-persistent-volumes.yaml
+  - monitoring/persistent-volumes.yaml
+  - data/persistent-volumes.yaml
+  - scheduling/persistent-volumes.yaml
+  - data/claims.yaml
+  - data/redis.yaml
+  - data/redis-exporter.yaml
+  - data/minio.yaml
+  - data/pact-postgres.yaml
+  - data/pact-broker.yaml
+  - data/inbucket.yaml
+  - data/imgproxy.yaml
+  - data/mailpit.yaml
+  - data/mailhog.yaml
+  - pipeline
+  - scheduling
+  - gcp

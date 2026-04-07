@@ -1,0 +1,83 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+# =================================
+# For the complete canonical reference of ALL services, ports, NodePorts, and resource allocations,
+# see: docs/infrastructure/services-ports.md
+#
+# ALWAYS check docs/infrastructure/services-ports.md before adding new services or changing ports
+# to prevent port conflicts.
+#
+# Google Cloud Bigtable Emulator
+# Provides local Bigtable emulation for development and testing
+# Official image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bigtable-emulator
+  namespace: gcp
+  labels:
+    app: bigtable-emulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bigtable-emulator
+  template:
+    metadata:
+      labels:
+        app: bigtable-emulator
+    spec:
+      containers:
+      - name: bigtable-emulator
+        image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+        command:
+        - gcloud
+        - beta
+        - emulators
+        - bigtable
+        - start
+        - --host-port=0.0.0.0:8086
+        - --project=pricewhisperer-dev
+        ports:
+        - containerPort: 8086
+          name: bigtable
+        env:
+        - name: BIGTABLE_EMULATOR_HOST
+          value: "0.0.0.0:8086"
+        - name: BIGTABLE_EMULATOR_PORT
+          value: "8086"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          tcpSocket:
+            port: 8086
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: 8086
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bigtable-emulator
+  namespace: gcp
+  labels:
+    app: bigtable-emulator
+spec:
+  type: NodePort
+  ports:
+  - port: 8086
+    targetPort: 8086
+    nodePort: 30886
+    name: bigtable
+  selector:
+    app: bigtable-emulator
+

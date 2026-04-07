@@ -1,0 +1,64 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+# =================================
+# For the complete canonical reference of ALL services, ports, NodePorts, and resource allocations,
+# see: docs/infrastructure/services-ports.md
+#
+# ALWAYS check docs/infrastructure/services-ports.md before adding new services or changing ports
+# to prevent port conflicts.
+#
+# PersistentVolumeClaims for Data Stack (postgres/parquet-lake moved to microscaler-supabase)
+# These must be created before deployments that use them
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-storage
+  namespace: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 512Mi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-storage
+  namespace: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 2.5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mailpit-storage-pv-claim
+  namespace: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pact-postgres-data
+  namespace: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 1Gi
+

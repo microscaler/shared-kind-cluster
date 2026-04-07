@@ -1,0 +1,110 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+# =================================
+# For the complete canonical reference of ALL services, ports, NodePorts, and resource allocations,
+# see: docs/infrastructure/services-ports.md
+#
+# ALWAYS check docs/infrastructure/services-ports.md before adding new services or changing ports
+# to prevent port conflicts.
+#
+# Google Cloud Functions Framework
+# Runs Cloud Functions locally using the Functions Framework
+# Supports Python, Node.js, Go, Java, and other runtimes
+# This deployment uses Python as an example - modify for your function runtime
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-functions
+  namespace: gcp
+  labels:
+    app: cloud-functions
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloud-functions
+  template:
+    metadata:
+      labels:
+        app: cloud-functions
+    spec:
+      containers:
+      - name: cloud-functions
+        # Use Python Functions Framework base image
+        # For Node.js: node:18-slim with @google-cloud/functions-framework
+        # For Go: golang:1.21-alpine
+        image: python:3.11-slim
+        command:
+        - sh
+        - -c
+        - |
+          pip install functions-framework
+          # Copy your function code here or mount as volume
+          # Example: functions-framework --target=hello_world --port=8080 --host=0.0.0.0
+          # For now, start a simple HTTP server that can be replaced with actual functions
+          python -m http.server 8080
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        - name: FUNCTION_TARGET
+          value: "hello_world"
+        - name: FUNCTION_SIGNATURE_TYPE
+          value: "http"
+        # Set emulator endpoints for GCP services
+        - name: PUBSUB_EMULATOR_HOST
+          value: "pubsub-emulator.gcp.svc.cluster.local:8085"
+        - name: DATASTORE_EMULATOR_HOST
+          value: "datastore-emulator.gcp.svc.cluster.local:8081"
+        - name: BIGTABLE_EMULATOR_HOST
+          value: "bigtable-emulator.gcp.svc.cluster.local:8086"
+        - name: GCLOUD_PROJECT
+          value: "pricewhisperer-dev"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        # Mount function code as volume (create this volume separately)
+        volumeMounts:
+        - name: function-code
+          mountPath: /app
+          readOnly: true
+      volumes:
+      - name: function-code
+        emptyDir: {}
+        # In production, use ConfigMap or PersistentVolumeClaim for function code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-functions
+  namespace: gcp
+  labels:
+    app: cloud-functions
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30880
+    name: http
+  selector:
+    app: cloud-functions
+

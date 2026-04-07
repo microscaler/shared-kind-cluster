@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - fluvio-rbac.yaml
+  - crds/mirrors.yaml
+  - crds/partitions.yaml
+  - crds/smartmodules.yaml
+  - crds/spugroups.yaml
+  - crds/spus.yaml
+  - crds/tableformats.yaml
+  - crds/topics.yaml
+  # Note: fluvio-persistent-volumes.yaml excluded - PVs should be created once and not managed by Tilt
+  # They have Retain policy and can't be easily deleted when bound to PVCs
+  # Create them manually: kubectl apply -f k8s/pipeline/fluvio-persistent-volumes.yaml
+  - fluvio-sc.yaml
+  - fluvio-spugroup.yaml
+  # Note: SPU StatefulSet is managed by SpuGroup, so we don't need fluvio-spu.yaml
+  # The SpuGroup creates SPU Custom Resources which Fluvio SC uses to create StatefulSets
+  # Note: Fluvio Topic CRD instances may have finalizers that prevent deletion
+  # If you see "Resource topics.fluvio.infinyon.com is currently being deleted", 
+  # it's likely a Topic instance (not the CRD) that's stuck. Check with: kubectl get topics -n pipeline
+
+
+

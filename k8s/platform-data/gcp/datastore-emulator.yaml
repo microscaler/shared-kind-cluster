@@ -1,0 +1,92 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+# =================================
+# For the complete canonical reference of ALL services, ports, NodePorts, and resource allocations,
+# see: docs/infrastructure/services-ports.md
+#
+# ALWAYS check docs/infrastructure/services-ports.md before adding new services or changing ports
+# to prevent port conflicts.
+#
+# Google Cloud Datastore Emulator
+# Provides local Datastore emulation for development and testing
+# Official image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datastore-emulator
+  namespace: gcp
+  labels:
+    app: datastore-emulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: datastore-emulator
+  template:
+    metadata:
+      labels:
+        app: datastore-emulator
+    spec:
+      containers:
+      - name: datastore-emulator
+        image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+        command:
+        - gcloud
+        - beta
+        - emulators
+        - datastore
+        - start
+        - --host-port=0.0.0.0:8081
+        - --project=pricewhisperer-dev
+        - --data-dir=/data
+        ports:
+        - containerPort: 8081
+          name: datastore
+        env:
+        - name: DATASTORE_PROJECT_ID
+          value: "pricewhisperer-dev"
+        - name: DATASTORE_EMULATOR_HOST
+          value: "0.0.0.0:8081"
+        volumeMounts:
+        - name: datastore-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: datastore-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datastore-emulator
+  namespace: gcp
+  labels:
+    app: datastore-emulator
+spec:
+  type: NodePort
+  ports:
+  - port: 8081
+    targetPort: 8081
+    nodePort: 30881
+    name: datastore
+  selector:
+    app: datastore-emulator
+

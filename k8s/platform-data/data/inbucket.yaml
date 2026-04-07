@@ -1,0 +1,84 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inbucket
+  namespace: data
+  labels:
+    app: inbucket
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inbucket
+  template:
+    metadata:
+      labels:
+        app: inbucket
+    spec:
+      containers:
+      - name: inbucket
+        image: inbucket/inbucket:latest
+        ports:
+        - containerPort: 2500
+          name: smtp
+        - containerPort: 7901
+          name: web
+        env:
+        - name: INBUCKET_WEB_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: infra-config
+              key: INBUCKET_WEB_ADDR
+        - name: INBUCKET_POP3_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: infra-config
+              key: INBUCKET_POP3_ADDR
+        - name: INBUCKET_SMTP_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: infra-config
+              key: INBUCKET_SMTP_ADDR
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7901
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 7901
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inbucket
+  namespace: data
+  labels:
+    app: inbucket
+spec:
+  type: ClusterIP
+  ports:
+  - port: 2500
+    targetPort: 2500
+    protocol: TCP
+    name: smtp
+  - port: 7901
+    targetPort: 7901
+    protocol: TCP
+    name: web
+  selector:
+    app: inbucket
+

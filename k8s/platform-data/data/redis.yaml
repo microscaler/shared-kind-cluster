@@ -1,0 +1,107 @@
+# ⚠️ PORT CONFIGURATION REFERENCE:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+      annotations:
+        prometheus.io/scrape: "true"
+    spec:
+      initContainers:
+      - name: create-dirs
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          # Create Redis data directory
+          mkdir -p /data
+          
+          # Set ownership and permissions (Redis runs as UID 999)
+          chown -R 999:999 /data
+          chmod -R 775 /data
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: storage
+          mountPath: /data
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        args:
+        - redis-server
+        - --appendonly
+        - "yes"
+        - --maxmemory
+        - "256mb"
+        - --maxmemory-policy
+        - "allkeys-lru"
+        - --dir
+        - /data
+        # Configure Redis logging to stdout
+        - --loglevel
+        - "notice"
+        - --logfile
+        - ""
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+        volumeMounts:
+        - name: storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 100m
+          limits:
+            memory: 256Mi
+            cpu: 500m
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: redis-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: data
+spec:
+  type: NodePort
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30379
+    name: redis
+  selector:
+    app: redis
+
