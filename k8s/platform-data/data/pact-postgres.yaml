@@ -1,5 +1,9 @@
 # ⚠️ PORT CONFIGURATION REFERENCE:
 # Pact Broker Postgres Database
+#
+# Logs may show ERROR: relation "schema_migrations" / "schema_info" does not exist when Pact Broker
+# (Sequel) probes tables before the first migration. That is normal on a fresh DB; the broker image
+# runs migrations on startup. Confirm health via `pact-broker` pod logs / HTTP :9292, not only these lines.
 ---
 apiVersion: apps/v1
 kind: Deployment

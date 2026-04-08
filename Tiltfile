@@ -41,8 +41,9 @@ k8s_resource('imgproxy', labels=['data'], resource_deps=['minio'])
 # --- observe (namespace: observability) — single label: "observe"
 k8s_resource('prometheus', labels=['observe'])
 k8s_resource('loki', labels=['observe'])
+k8s_resource('jaeger', labels=['observe'])
 k8s_resource('grafana', labels=['observe'])
-k8s_resource('otel-collector', labels=['observe'])
+k8s_resource('otel-collector', labels=['observe'], resource_deps=['jaeger'])
 
 # --- pipeline — single label: "pipeline"
 k8s_resource('fluvio-sc', labels=['pipeline'])

@@ -1,5 +1,5 @@
 # Shared Kind cluster — microscaler (context kind-kind)
-# Run from this directory: `just` / `just dev`
+# Run from this directory: `just dev-up` / `just dev-down`
 #
 # Owns the local Docker registry (kind-registry → localhost:5001) used by all microscaler app Tilts.
 
@@ -35,7 +35,7 @@ registry-wire: registry
     fi
     docker network connect kind kind-registry 2>/dev/null || true
     if ! kind get clusters 2>/dev/null | grep -q '^kind$'; then
-        echo "No Kind cluster 'kind' yet; registry is up. Run 'just cluster-create' or 'just dev'."
+        echo "No Kind cluster 'kind' yet; registry is up. Run 'just cluster-create' or 'just dev-up'."
         exit 0
     fi
     REGISTRY_DIR="/etc/containerd/certs.d/localhost:5001"
@@ -108,8 +108,8 @@ tilt-up:
 tilt-down:
     tilt down || true
 
-# Registry, cluster if missing, wire, context, Tilt
-dev:
+# Registry, cluster if missing, wire, context, Tilt (shared infra UI port 10348)
+dev-up:
     #!/usr/bin/env bash
     set -euo pipefail
     just registry
@@ -119,3 +119,6 @@ dev:
     kubectl config use-context kind-kind
     just registry-wire
     tilt up --port=10348
+
+# Stop shared Tilt (cluster + kind-registry unchanged)
+dev-down: tilt-down

@@ -1,5 +1,6 @@
 # ⚠️ PORT CONFIGURATION REFERENCE:
 # Pact Broker - Contract Testing Service
+# Image runs DB migrations on startup; see comments on pact-postgres.yaml for expected Postgres log noise.
 ---
 apiVersion: apps/v1
 kind: Deployment
