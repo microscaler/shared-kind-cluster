@@ -122,7 +122,7 @@ On a **new** database, **`pact-postgres`** logs may include PostgreSQL **`ERROR:
 
 These repos symlink `kind-config.yaml` → `../../shared-kind-cluster/kind-config.yaml` (or `../…` from repo root next to `shared-kind-cluster`):
 
-- `ai/hauliage`, `ai/tiffany`, `lifeguard`, `PriceWhisperer`
+- `hauliage`, `tiffany`, `lifeguard`, `PriceWhisperer`
 
 `BRRTRouter` keeps a **copy** of the merged config at `k8s/cluster/kind-config.yaml` for standalone CI clones; keep it in sync when editing ports here. Local Tilt in BRRTRouter does **not** create the cluster — from **this** repo run **`just dev-up`** (shared infra on port **10348**), or **`just cluster-create`** if you only need the cluster without that Tilt, then run **`just dev-up`** in BRRTRouter for the app.
 
