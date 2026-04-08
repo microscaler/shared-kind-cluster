@@ -7,6 +7,15 @@ metadata:
   name: fluvio-sc
   namespace: pipeline
 ---
+# Referenced by ClusterRoleBinding fluvio-metrics-exporter (same ClusterRole as fluvio-sc).
+# The fluvio-sc Deployment runs both SC and metrics sidecar under pod serviceAccountName: fluvio-sc;
+# per-container serviceAccountName is not valid in Kubernetes—do not set it on the sidecar.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluvio-metrics-exporter
+  namespace: pipeline
+---
 # ClusterRole with permissions for Fluvio SC to manage Fluvio resources
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

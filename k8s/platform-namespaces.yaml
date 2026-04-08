@@ -1,0 +1,64 @@
+# Shared platform namespaces for the default Kind cluster (context kind-kind).
+# Apply before app Tilts that deploy into `data` (e.g. Hauliage Mosquitto) or shared infra Tilt:
+#   kubectl apply -f k8s/platform-namespaces.yaml
+# From sibling repos: kubectl apply -f ../shared-kind-cluster/k8s/platform-namespaces.yaml
+#
+# Canonical sources (keep in sync when labels change):
+#   data          — microscaler-supabase/k8s/data/namespace.yaml
+#   observability — k8s/observability/namespace.yaml
+#   pipeline      — k8s/platform-data/pipeline/namespace.yaml
+#   scheduling    — k8s/platform-data/scheduling/namespace.yaml
+#   gcp           — k8s/platform-data/gcp/namespace.yaml
+---
+# Supabase / Data Stack Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+  labels:
+    app: data
+    managed-by: microscaler-supabase
+  annotations:
+    description: "Supabase stack namespace (postgres, gotrue, postgrest, realtime, storage, etc.)"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    app.kubernetes.io/part-of: microscaler-shared-cluster
+  annotations:
+    description: Shared Prometheus, Loki, Grafana, OpenTelemetry collector
+---
+# Pipeline Stack Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pipeline
+  labels:
+    app: pipeline
+    managed-by: tilt
+  annotations:
+    description: "Pipeline stack namespace for Fluvio data streaming"
+---
+# Scheduling Stack Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: scheduling
+  labels:
+    app: scheduling
+    managed-by: tilt
+  annotations:
+    description: "Scheduling stack namespace for Faktory job scheduler"
+---
+# GCP Emulators Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gcp
+  labels:
+    app: gcp
+    managed-by: tilt
+  annotations:
+    description: "GCP emulators namespace for local development (Pub/Sub, Datastore, Bigtable, Cloud Functions)"

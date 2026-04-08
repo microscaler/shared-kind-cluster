@@ -48,7 +48,7 @@ spec:
         env:
         # PostgreSQL role names must be ≤63 bytes. Secrets such as generated service IDs can exceed
         # that and cause initdb to fail (FATAL: identifier too long). Use fixed role `pact` — must
-        # match readiness/liveness probes and PACT_BROKER_DATABASE_URL (postgres://pact:...@.../pact).
+        # match readiness/liveness probes and pact-broker `PACT_BROKER_DATABASE_*` (user pact, same password).
         - name: POSTGRES_USER
           value: "pact"
         - name: POSTGRES_PASSWORD

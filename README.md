@@ -18,7 +18,7 @@ Single **default** Kind cluster for local development when you cannot run one cl
 |-----------|-----------|--------------|------------------|-------|
 | Supabase PostgreSQL (primary) | `data` | `postgres` | `postgres` | From `infra-secrets`; main cluster DB for the Supabase slice. |
 | postgres-meta (DB login) | `data` | `supabase_admin` | `postgres` | `PG_META_*` / `POSTGRES_META_*` in `infra-config` / `infra-secrets`. |
-| Pact PostgreSQL | `data` | `pact` (fixed) | `pact` | Role name fixed in Deployment; must match `PACT_BROKER_DATABASE_URL`. |
+| Pact PostgreSQL | `data` | `pact` (fixed) | `pact` | Role name fixed in Deployment; password from `PACT_POSTGRES_PASSWORD`; broker uses `PACT_BROKER_DATABASE_*` + `SERVICE_PACT_POSTGRES_HOST` in manifests. |
 | Pact Broker (HTTP Basic) | `data` | `pact` | `pact` | Web UI/API basic auth via `PACT_BROKER_BASIC_AUTH_*` in `infra-secrets`. |
 | MinIO (S3 + console) | `data` | `minio` | `minio-dev-password-change-me` | Root credentials from `MINIO_ROOT_*` in `infra-secrets`. |
 | Grafana | `observability` | `admin` | `admin` | `GF_SECURITY_ADMIN_*` in [`k8s/observability/grafana.yaml`](k8s/observability/grafana.yaml). |
@@ -46,7 +46,8 @@ From this directory:
 | `just` | List recipes |
 | `just registry` | Start **`kind-registry`** on **localhost:5001** (idempotent) |
 | `just registry-wire` | Attach registry to the `kind` network, **containerd** `hosts.toml` on nodes, **kube-public** ConfigMap |
-| `just dev-up` | **registry** → create cluster if missing → **registry-wire** → `tilt up` (port **10348**) |
+| `just apply-platform-namespaces` | **`kubectl apply -f k8s/platform-namespaces.yaml`** (`data`, `observability`, …) |
+| `just dev-up` | **registry** → create cluster if missing → **registry-wire** → **platform-namespaces** → `tilt up` (port **10348**) |
 | `just dev-down` | `tilt down` for this repo (cluster + **kind-registry** left running) |
 | `just cluster-create` | **registry** → create **`kind`** cluster if missing → **registry-wire** |
 | `just cluster-delete` | `kind delete cluster --name kind` (does **not** stop the registry) |
@@ -81,23 +82,35 @@ tilt up
 - **Tilt UI** defaults to port **10348** (avoids collisions with app Tilts that use other ports). Override: `tilt up --port=10349` or set `tilt_port` in `tilt_config.json` / env patterns your team uses.
 - The Tiltfile only allows context **`kind-kind`** so you do not deploy shared infra to the wrong cluster by mistake.
 
+### Tilt and namespaces
+
+Stack namespaces (`data`, `observability`, `pipeline`, `scheduling`, `gcp`) are defined in the **kustomize** tree and applied by **`k8s_yaml(kustomize('./k8s'))`** in the Tiltfile.
+
+**Bootstrap (required for app Tilts):** **`kubectl apply -f k8s/platform-namespaces.yaml`** (or **`just apply-platform-namespaces`**) creates those namespaces **outside Tilt** so sibling repos (e.g. **hauliage**) can deploy into **`data`** before shared infra Tilt runs. **`just dev-up`** / **`just tilt-up`** here runs that apply automatically before **`tilt up`**.
+
+**Do not** remove `Namespace` objects from that build to “take them out of Tilt.” Tilt reconciles applies against the YAML it sees; if namespaces disappear from the manifest, Tilt’s cleanup can **delete those namespaces** from the cluster, and the next apply fails with **`namespaces "…" not found`** (for example on `bigtable-emulator` in `gcp`).
+
+Cluster standup is: **Kind cluster** + **`kubectl apply -f k8s/platform-namespaces.yaml`** + **`tilt up`** (or `kubectl apply -k k8s` once), which (re)creates namespaces idempotently. After a bad state, run **`tilt up`** again or **`kubectl apply -k k8s`** from this repo with context **`kind-kind`**.
+
 ## Relationship to app repos
 
-1. Bring up **this** Tilt (or apply the same manifests once) so `data` and `observability` exist.
-2. Run each product’s Tilt (`PriceWhisperer`, `hauliage`, …) against **`kind-kind`**, with that product’s namespace for app resources.
+1. **`kubectl apply -f k8s/platform-namespaces.yaml`** (or **`just apply-platform-namespaces`**) must succeed on **`kind-kind`** before any app manifest targets **`data`**. **Hauliage** runs this automatically via **`just dev-up`** (see **`SHARED_KIND_CLUSTER_ROOT`** if your checkout layout differs).
+2. Bring up **this** Tilt (`just dev-up` or `tilt up` from **shared-kind-cluster**) so shared workloads exist in those namespaces.
+3. Run each product’s Tilt (`PriceWhisperer`, `hauliage`, …) against **`kind-kind`**, with that product’s namespace for app resources.
 
 When you migrate an app from a dedicated Kind cluster to the shared one, update that app’s `allow_k8s_contexts` to include `kind-kind` and align `kind-config.yaml` port mappings with this file so host ports stay consistent.
 
 ## What `kustomize ./k8s` deploys
 
-1. **`StorageClass` `local-storage`** — required by Supabase PVs/PVCs.
-2. **Supabase data plane** — [`microscaler-supabase/k8s/overlays/shared-kind`](../microscaler-supabase/k8s/overlays/shared-kind) → Postgres, parquet lake, exporters, … in namespace **`data`**.
-3. **Platform data** — [`k8s/platform-data/`](k8s/platform-data) (Redis, MinIO, Pact, Fluvio, Faktory, GCP emulators, PVs/PVCs, monitoring PVs). Source of truth for these manifests lives in **this repo** (moved out of PriceWhisperer).
-4. **Observability** — `k8s/observability/`: namespace **`observability`**, **Prometheus**, **Loki**, **Grafana**, **OpenTelemetry Collector**.
+1. **Stack `Namespace` objects** — `data` (from microscaler-supabase), `observability`, `pipeline`, `scheduling`, `gcp`. Keep them in this output when using Tilt (see **Tilt and namespaces** above).
+2. **`StorageClass` `local-storage`** — required by Supabase PVs/PVCs.
+3. **Supabase data plane** — [`microscaler-supabase/k8s/overlays/shared-kind`](../microscaler-supabase/k8s/overlays/shared-kind) → Postgres, parquet lake, exporters, … in namespace **`data`**.
+4. **Platform data** — [`k8s/platform-data/`](k8s/platform-data) (Redis, MinIO, Pact, Fluvio, Faktory, GCP emulators, PVs/PVCs, monitoring PVs). Source of truth for these manifests lives in **this repo** (moved out of PriceWhisperer).
+5. **Observability** — `k8s/observability/`: namespace **`observability`**, **Prometheus**, **Loki**, **Grafana**, **OpenTelemetry Collector**.
 
 Requires a side-by-side clone of **`microscaler-supabase`** next to **`shared-kind-cluster`** (same parent folder as in this monorepo layout). PriceWhisperer is optional for kustomize (platform-data is self-contained here).
 
-**`infra-config` / `infra-secrets`** (namespace `data`) are generated by **`microscaler-supabase/k8s/data/deployment-configuration/profiles/dev`** (`application.properties` + `application.secrets.env`). Platform-data workloads need keys such as:
+**`infra-config` / `infra-secrets`** (namespace `data`) are generated by **`microscaler-supabase/k8s/data/deployment-configuration/profiles/dev`** (`application.properties` + `application.secrets.env`). The shared **`Tiltfile` runs `kubectl apply -k` on that directory at load time** (before `kustomize ./k8s` is applied) so those objects always exist; copy **`application.secrets.env.example`** → **`application.secrets.env`** if missing. Platform-data workloads need keys such as:
 
 - **Secret `infra-secrets`:** **`PACT_*`**, **`MINIO_ROOT_USER`**, **`MINIO_ROOT_PASSWORD`**, …
 - **ConfigMap `infra-config`:** **`MAILPIT_DATABASE`**, **`MAILPIT_TIMEZONE`**, **`INBUCKET_*_ADDR`**, **`IMGPROXY_*`**, …
@@ -108,6 +121,8 @@ If keys are missing after pulling newer manifests, extend `application.propertie
 
 On a **new** database, **`pact-postgres`** logs may include PostgreSQL **`ERROR: relation "schema_migrations" does not exist`** (and similarly **`schema_info`**). The Pact Broker app uses **Sequel**; it probes for migration metadata before creating tables, and Postgres logs failed `SELECT`s at **ERROR** even though the app continues and runs migrations. After startup, **`kubectl logs -n data deployment/pact-broker`** should show a healthy Puma server and **`kubectl get pods -n data -l app=pact-broker`** should be **Running**. If the broker **CrashLoopBackOff**s, investigate broker logs (not only Postgres). Some log viewers also redact paths containing the substring `POSTGRES`, which can make paths like `/var/run/postgresql/...` look corrupted—compare with raw **`kubectl logs`**.
 
+**Host / DNS in logs:** If **`PACT_POSTGRES_PASSWORD`** is the literal string **`postgres`**, some UIs redact that substring **everywhere**, including inside the hostname **`pact-postgres`**, so logs may show a nonsense host like `pact-<redacted>...` and **`Name does not resolve`**. Confirm the real env with **`kubectl exec -n data deploy/pact-broker -- printenv PACT_BROKER_DATABASE_HOST`** (should be **`pact-postgres`**). The broker Deployment sets host/port/DB name as literals in **`pact-broker.yaml`**; only the password comes from **`infra-secrets`**. Ensure **`kubectl get svc -n data pact-postgres`** exists and **`pact-postgres`** pods are ready before the broker.
+
 ## Layout
 
 | Path              | Role |
@@ -115,7 +130,7 @@ On a **new** database, **`pact-postgres`** logs may include PostgreSQL **`ERROR:
 | `justfile`        | `just dev-up` / `just dev-down`, cluster create/delete, registry, context, Tilt |
 | `kind-config.yaml`| Merged `extraPortMappings` for app dev (see kind-config comments) |
 | `Tiltfile`        | `kustomize ./k8s` (data + observability) |
-| `k8s/kustomization.yaml` | Composes StorageClass + Supabase overlay + **`platform-data/`** + `observability/` |
+| `k8s/kustomization.yaml` | Composes StorageClass + Supabase overlay + **`platform-data/`** + `observability/` (includes stack Namespaces) |
 | `k8s/observability/` | Prometheus, Loki, Grafana, OTel |
 
 ## App repositories

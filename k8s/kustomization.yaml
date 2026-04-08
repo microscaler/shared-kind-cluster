@@ -1,4 +1,6 @@
 # Order: StorageClass → Supabase (data) → platform-data (pipeline, redis, minio, …) → observability
+# Namespace objects MUST stay in this build when using Tilt — if they are omitted from YAML, Tilt can
+# garbage-collect them on the next apply (namespace not found). See README "Tilt and namespaces".
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 

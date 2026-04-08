@@ -1,6 +1,11 @@
 # Shared Kind cluster — Supabase + platform-data + observability.
 # Run against the default cluster: kubectl context kind-kind
 #
+# AGENT NOTE: App Tiltfiles (e.g. ../hauliage) assume shared postgres/redis/meta; they do not duplicate those.
+# Hauliage deploys its own Mosquitto broker in namespace `data` from k8s/data/mosquitto.yaml — not this stack.
+#
+# Stack Namespaces are part of kustomize ./k8s (must stay there — if omitted, Tilt can GC them). See README.
+#
 # Tilt UI: each workload has exactly ONE label (one of five groups below) to keep the sidebar simple.
 #
 #   data         — namespace data (Postgres, Redis, mail, Pact, …)
@@ -17,6 +22,14 @@ config.define_string('tilt_port', args=False, usage='Port for Tilt web UI for th
 cfg = config.parse()
 tilt_port = cfg.get('tilt_port', '10348')
 os.putenv('TILT_PORT', tilt_port)
+
+# microscaler-supabase generates infra-config + infra-secrets (kustomize generators). They are not workloads,
+# so per-resource force updates can redeploy pods without re-applying those objects; Tilt can also GC them.
+# Apply the dev profile first on every Tiltfile load (runs before k8s_yaml below is deployed).
+_dev_infra = '../microscaler-supabase/k8s/data/deployment-configuration/profiles/dev'
+read_file(_dev_infra + '/application.properties')
+read_file(_dev_infra + '/application.secrets.env')
+local('kubectl apply -k "%s"' % _dev_infra)
 
 k8s_yaml(kustomize('./k8s'))
 
@@ -63,13 +76,13 @@ k8s_resource(
 
 local_resource(
     'cluster-info',
-    'kubectl config current-context && kubectl get ns data observability 2>/dev/null && kubectl get pods -n data -l app=postgres 2>/dev/null; kubectl get pods -n observability 2>/dev/null || true',
+    'kubectl config current-context && kubectl get ns data observability pipeline scheduling gcp 2>/dev/null && kubectl get pods -n data -l app=postgres 2>/dev/null; kubectl get pods -n observability 2>/dev/null || true',
     allow_parallel=True,
 )
 
 print('')
 print('  Shared Kind cluster (kind-kind)')
-print('  kustomize ./k8s: Supabase + platform-data + observability')
+print('  kustomize ./k8s: Supabase + platform-data + observability (includes stack Namespaces)')
 print('  Tilt groups: data | observe | pipeline | scheduling | gcp (one label per resource)')
 print('  Tilt UI port: %s (override: tilt up -- --tilt_port=...)' % tilt_port)
 print('')

@@ -62,7 +62,7 @@ registry-wire: registry
     echo "Registry wired to Kind cluster 'kind'."
 
 # -----------------------------------------------------------------------------
-# Kind cluster (default name `kind` → kubectl context `kind-kind`)
+# Kind cluster (default name `kind` → kubectl context kind-kind)
 # -----------------------------------------------------------------------------
 
 # Create the cluster if it does not exist (idempotent); starts registry and wires it after create
@@ -78,6 +78,7 @@ cluster-create: registry
     kind create cluster --config kind-config.yaml --wait 120s
     echo "Context: kind-kind"
     just registry-wire
+    kubectl apply -f k8s/platform-namespaces.yaml
 
 # Delete the shared cluster (does not remove kind-registry; other stacks may still use it)
 cluster-delete:
@@ -87,28 +88,33 @@ cluster-delete:
 context:
     kubectl config use-context kind-kind
 
-# kind get clusters + kubectl get ns data observability
+# Create `data`, `observability`, `pipeline`, `scheduling`, `gcp` (idempotent). Run before app Tilts or shared Tilt.
+apply-platform-namespaces: context
+    kubectl apply -f k8s/platform-namespaces.yaml
+
+# kind get clusters + stack namespaces
 status: context
     @kind get clusters
-    @kubectl get ns data observability 2>/dev/null || kubectl get ns
+    @kubectl get ns data observability pipeline scheduling gcp 2>/dev/null || kubectl get ns
 
 # -----------------------------------------------------------------------------
-# Tilt (shared infra: k8s/ namespaces; default UI port 10348)
+# Tilt (shared infra: kustomize ./k8s includes Namespaces; default UI port 10348)
 # -----------------------------------------------------------------------------
 
-# Registry + context + wire + Tilt
+# Registry + context + wire + platform namespaces + Tilt
 tilt-up:
     #!/usr/bin/env bash
     set -euo pipefail
     just registry
     kubectl config use-context kind-kind
     just registry-wire
+    kubectl apply -f k8s/platform-namespaces.yaml
     tilt up --port=10348
 
 tilt-down:
     tilt down || true
 
-# Registry, cluster if missing, wire, context, Tilt (shared infra UI port 10348)
+# Registry, cluster if missing, wire, platform namespaces, Tilt (shared infra UI port 10348)
 dev-up:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -118,6 +124,7 @@ dev-up:
     fi
     kubectl config use-context kind-kind
     just registry-wire
+    kubectl apply -f k8s/platform-namespaces.yaml
     tilt up --port=10348
 
 # Stop shared Tilt (cluster + kind-registry unchanged)
