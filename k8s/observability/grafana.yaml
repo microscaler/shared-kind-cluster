@@ -50,6 +50,11 @@ spec:
           volumeMounts:
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
+            - name: grafana-dashboard-providers
+              mountPath: /etc/grafana/provisioning/dashboards
+            # JSON dashboards: apply hauliage k8s/observability/grafana-hauliage-dashboards.yaml (optional until applied).
+            - name: grafana-hauliage-dashboards
+              mountPath: /var/lib/grafana/dashboards/hauliage
           livenessProbe:
             httpGet:
               path: /api/health
@@ -72,3 +77,10 @@ spec:
         - name: datasources
           configMap:
             name: grafana-datasources
+        - name: grafana-dashboard-providers
+          configMap:
+            name: grafana-dashboard-providers
+        - name: grafana-hauliage-dashboards
+          configMap:
+            name: grafana-hauliage-dashboards
+            optional: true

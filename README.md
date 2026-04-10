@@ -28,7 +28,7 @@ Single **default** Kind cluster for local development when you cannot run one cl
 | Inbucket | `data` | — | — | Web/UI without auth in default setup. |
 | imgproxy | `data` | — | — | Image proxy only. |
 | Parquet lake (workloads) | `data` | — | — | Uses shared `data` plane storage; no separate UI login here. |
-| Prometheus, Loki, Jaeger, OpenTelemetry Collector | `observability` | — | — | No auth in these dev manifests. |
+| Prometheus, Loki, Promtail, Jaeger, OpenTelemetry Collector | `observability` | — | — | No auth in these dev manifests. Pod logs reach Grafana/Loki via **Promtail**. |
 | Fluvio (SC, SPUs, topics, …) | `pipeline` | — | — | Follow [Fluvio](https://www.fluvio.io/) docs for cluster profiles and access. |
 | Faktory | `scheduling` | — | — | Dev `development` env; dashboard port exposed via Service—treat as untrusted. |
 | GCP emulators | `gcp` | — | — | Emulator defaults per Google tooling; not production GCP. |
@@ -92,6 +92,22 @@ Stack namespaces (`data`, `observability`, `pipeline`, `scheduling`, `gcp`) are 
 
 Cluster standup is: **Kind cluster** + **`kubectl apply -f k8s/platform-namespaces.yaml`** + **`tilt up`** (or `kubectl apply -k k8s` once), which (re)creates namespaces idempotently. After a bad state, run **`tilt up`** again or **`kubectl apply -k k8s`** from this repo with context **`kind-kind`**.
 
+## PostgreSQL (namespace `data`) — local access
+
+The main app database is typically named **`hauliage`** (role **`hauliage`**; password matches Helm / `HAULIAGE_DB_PASSWORD`, default dev: `dev_password_change_in_prod`). Tables live in schema **`hauliage`**.
+
+**Port-forward** (works from your laptop when the cluster is up):
+
+```bash
+kubectl port-forward -n data svc/postgres 15432:5432
+# psql example (adjust password):
+PGPASSWORD=dev_password_change_in_prod psql -h 127.0.0.1 -p 15432 -U hauliage -d hauliage -c '\dt hauliage.*'
+```
+
+If a **NodePort** is exposed (e.g. `5432:30432/TCP` on `svc/postgres`), you can also use **`127.0.0.1:30432`** when that port is mapped on the Kind node (depends on `kind-config`); **`kubectl port-forward`** is the reliable option.
+
+After **`scripts/setup-db.sh`** (from the **hauliage** repo) applies migrations, it also **`GRANT`s DML** on `hauliage.*` tables to the **`hauliage`** role. Without that step, tables created as **`postgres`** remain inaccessible to the app user and clients (including **`hauliage_iot_worker`**) may see only a generic **`db error`** from the Rust driver.
+
 ## Relationship to app repos
 
 1. **`kubectl apply -f k8s/platform-namespaces.yaml`** (or **`just apply-platform-namespaces`**) must succeed on **`kind-kind`** before any app manifest targets **`data`**. **Hauliage** runs this automatically via **`just dev-up`** (see **`SHARED_KIND_CLUSTER_ROOT`** if your checkout layout differs).
@@ -100,13 +116,19 @@ Cluster standup is: **Kind cluster** + **`kubectl apply -f k8s/platform-namespac
 
 When you migrate an app from a dedicated Kind cluster to the shared one, update that app’s `allow_k8s_contexts` to include `kind-kind` and align `kind-config.yaml` port mappings with this file so host ports stay consistent.
 
+### Grafana — Hauliage folder
+
+The **Hauliage** Grafana dashboards and JSON are maintained in **`microscaler/hauliage/k8s/observability/`**, not here. After shared Grafana is up, apply that kustomize and restart Grafana:
+
+`kubectl apply -k ../hauliage/k8s/observability/` · `kubectl rollout restart deployment/grafana -n observability`
+
 ## What `kustomize ./k8s` deploys
 
 1. **Stack `Namespace` objects** — `data` (from microscaler-supabase), `observability`, `pipeline`, `scheduling`, `gcp`. Keep them in this output when using Tilt (see **Tilt and namespaces** above).
 2. **`StorageClass` `local-storage`** — required by Supabase PVs/PVCs.
 3. **Supabase data plane** — [`microscaler-supabase/k8s/overlays/shared-kind`](../microscaler-supabase/k8s/overlays/shared-kind) → Postgres, parquet lake, exporters, … in namespace **`data`**.
 4. **Platform data** — [`k8s/platform-data/`](k8s/platform-data) (Redis, MinIO, Pact, Fluvio, Faktory, GCP emulators, PVs/PVCs, monitoring PVs). Source of truth for these manifests lives in **this repo** (moved out of PriceWhisperer).
-5. **Observability** — `k8s/observability/`: namespace **`observability`**, **Prometheus**, **Loki**, **Grafana**, **OpenTelemetry Collector**.
+5. **Observability** — `k8s/observability/`: namespace **`observability`**, **Prometheus**, **Loki**, **Promtail** (DaemonSet → ships pod logs to Loki), **Grafana**, **OpenTelemetry Collector**.
 
 Requires a side-by-side clone of **`microscaler-supabase`** next to **`shared-kind-cluster`** (same parent folder as in this monorepo layout). PriceWhisperer is optional for kustomize (platform-data is self-contained here).
 
@@ -131,7 +153,7 @@ On a **new** database, **`pact-postgres`** logs may include PostgreSQL **`ERROR:
 | `kind-config.yaml`| Merged `extraPortMappings` for app dev (see kind-config comments) |
 | `Tiltfile`        | `kustomize ./k8s` (data + observability) |
 | `k8s/kustomization.yaml` | Composes StorageClass + Supabase overlay + **`platform-data/`** + `observability/` (includes stack Namespaces) |
-| `k8s/observability/` | Prometheus, Loki, Grafana, OTel |
+| `k8s/observability/` | Prometheus, Loki, Promtail, Grafana, OTel |
 
 ## App repositories
 

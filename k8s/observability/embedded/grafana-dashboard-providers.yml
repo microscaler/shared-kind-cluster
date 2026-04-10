@@ -1,0 +1,12 @@
+# Loads JSON dashboards from /var/lib/grafana/dashboards/hauliage (ConfigMap from hauliage repo).
+apiVersion: 1
+providers:
+  - name: hauliage
+    orgId: 1
+    folder: Hauliage
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/hauliage

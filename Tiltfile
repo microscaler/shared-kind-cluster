@@ -34,7 +34,13 @@ local('kubectl apply -k "%s"' % _dev_infra)
 k8s_yaml(kustomize('./k8s'))
 
 # --- data (namespace: data) — single label: "data"
-k8s_resource('postgres', labels=['data'])
+# Port-forward matches microscaler-supabase Service postgres (see k8s/data/postgres.yaml). Kind may also expose
+# NodePort via kind-config hostPort 5433 — use either localhost:5432 (Tilt) or 127.0.0.1:5433 per cluster docs.
+k8s_resource(
+    'postgres',
+    port_forwards=['5432:5432'],
+    labels=['data'],
+)
 k8s_resource('postgres-meta', labels=['data'], resource_deps=['postgres'])
 k8s_resource('postgres-exporter', labels=['data'], resource_deps=['postgres'])
 k8s_resource('redis', labels=['data'])
@@ -52,10 +58,31 @@ k8s_resource('inbucket', labels=['data'])
 k8s_resource('imgproxy', labels=['data'], resource_deps=['minio'])
 
 # --- observe (namespace: observability) — single label: "observe"
-k8s_resource('prometheus', labels=['observe'])
-k8s_resource('loki', labels=['observe'])
-k8s_resource('jaeger', labels=['observe'])
-k8s_resource('grafana', labels=['observe'])
+# Port-forwards: localhost → Service (may overlap kind-config hostPort mappings; use one access path).
+k8s_resource(
+    'prometheus',
+    port_forwards=['9090:9090'],
+    labels=['observe'],
+)
+k8s_resource(
+    'loki',
+    port_forwards=['3100:3100'],
+    labels=['observe'],
+)
+k8s_resource(
+    'jaeger',
+    port_forwards=[
+        '16686:16686',
+        '4317:4317',
+        '4318:4318',
+    ],
+    labels=['observe'],
+)
+k8s_resource(
+    'grafana',
+    port_forwards=['3000:3000'],
+    labels=['observe'],
+)
 k8s_resource('otel-collector', labels=['observe'], resource_deps=['jaeger'])
 
 # --- pipeline — single label: "pipeline"
