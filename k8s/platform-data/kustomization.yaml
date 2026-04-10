@@ -18,6 +18,7 @@ resources:
   - data/imgproxy.yaml
   - data/mailpit.yaml
   - data/mailhog.yaml
+  - data/postgres-replicas.yaml
   - pipeline
   - scheduling
   - gcp

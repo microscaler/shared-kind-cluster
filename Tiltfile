@@ -37,12 +37,14 @@ k8s_yaml(kustomize('./k8s'))
 # Port-forward matches microscaler-supabase Service postgres (see k8s/data/postgres.yaml). Kind may also expose
 # NodePort via kind-config hostPort 5433 — use either localhost:5432 (Tilt) or 127.0.0.1:5433 per cluster docs.
 k8s_resource(
-    'postgres',
+    'postgres-primary',
     port_forwards=['5432:5432'],
     labels=['data'],
 )
-k8s_resource('postgres-meta', labels=['data'], resource_deps=['postgres'])
-k8s_resource('postgres-exporter', labels=['data'], resource_deps=['postgres'])
+k8s_resource('postgres-replica-0', labels=['data'], resource_deps=['postgres-primary'])
+k8s_resource('postgres-replica-1', labels=['data'], resource_deps=['postgres-primary'])
+k8s_resource('postgres-meta', labels=['data'], resource_deps=['postgres-primary'])
+k8s_resource('postgres-exporter', labels=['data'], resource_deps=['postgres-primary'])
 k8s_resource('redis', labels=['data'])
 k8s_resource('redis-exporter', labels=['data'], resource_deps=['redis'])
 k8s_resource('minio', labels=['data'])
