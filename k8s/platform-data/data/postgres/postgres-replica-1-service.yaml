@@ -10,7 +10,7 @@ spec:
   ports:
     - name: postgres
       port: 5432
-      targetPort: postgresql
+      targetPort: postgres
       protocol: TCP
   selector:
     app: postgres-replica-1
