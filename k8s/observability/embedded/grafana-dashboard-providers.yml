@@ -10,3 +10,12 @@ providers:
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards/hauliage
+  - name: databases
+    orgId: 1
+    folder: Databases
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/cluster

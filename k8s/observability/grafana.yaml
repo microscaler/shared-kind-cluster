@@ -55,6 +55,8 @@ spec:
             # JSON dashboards: apply hauliage k8s/observability/grafana-hauliage-dashboards.yaml (optional until applied).
             - name: grafana-hauliage-dashboards
               mountPath: /var/lib/grafana/dashboards/hauliage
+            - name: grafana-cluster-dashboards
+              mountPath: /var/lib/grafana/dashboards/cluster
           livenessProbe:
             httpGet:
               path: /api/health
@@ -84,3 +86,6 @@ spec:
           configMap:
             name: grafana-hauliage-dashboards
             optional: true
+        - name: grafana-cluster-dashboards
+          configMap:
+            name: grafana-cluster-dashboards

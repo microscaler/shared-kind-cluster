@@ -51,3 +51,8 @@ configMapGenerator:
       - promtail.yaml=embedded/promtail-config.yml
     options:
       disableNameSuffixHash: true
+  - name: grafana-cluster-dashboards
+    files:
+      - databases.json=embedded/grafana-dashboard-databases.json
+    options:
+      disableNameSuffixHash: true
