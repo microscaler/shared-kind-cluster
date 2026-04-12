@@ -6,19 +6,11 @@ kind: Kustomization
 resources:
   - pipeline/fluvio-persistent-volumes.yaml
   - monitoring/persistent-volumes.yaml
-  - data/persistent-volumes.yaml
   - scheduling/persistent-volumes.yaml
-  - data/claims.yaml
-  - data/redis.yaml
-  - data/redis-exporter.yaml
-  - data/minio.yaml
-  - data/pact-postgres.yaml
-  - data/pact-broker.yaml
-  - data/inbucket.yaml
-  - data/imgproxy.yaml
-  - data/mailpit.yaml
-  - data/mailhog.yaml
-  - data/postgres-replicas.yaml
+  - data/cache
+  - data/buckets
+  - data/postgres
+  - data/messaging
   - pipeline
   - scheduling
-  - gcp
+  # - gcp

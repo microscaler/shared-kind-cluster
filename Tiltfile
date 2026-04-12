@@ -27,9 +27,12 @@ os.putenv('TILT_PORT', tilt_port)
 # so per-resource force updates can redeploy pods without re-applying those objects; Tilt can also GC them.
 # Apply the dev profile first on every Tiltfile load (runs before k8s_yaml below is deployed).
 _dev_infra = '../microscaler-supabase/k8s/data/deployment-configuration/profiles/dev'
-read_file(_dev_infra + '/application.properties')
-read_file(_dev_infra + '/application.secrets.env')
-local('kubectl apply -k "%s"' % _dev_infra)
+local_resource(
+    'infra-secrets',
+    'kubectl apply -k "%s"' % _dev_infra,
+    deps=[_dev_infra],
+    labels=['data'],
+)
 
 k8s_yaml(kustomize('./k8s'))
 
@@ -43,8 +46,7 @@ k8s_resource(
 )
 k8s_resource('postgres-replica-0', labels=['data'], resource_deps=['postgres-primary'])
 k8s_resource('postgres-replica-1', labels=['data'], resource_deps=['postgres-primary'])
-k8s_resource('postgres-meta', labels=['data'], resource_deps=['postgres-primary'])
-k8s_resource('postgres-exporter', labels=['data'], resource_deps=['postgres-primary'])
+
 k8s_resource('redis', labels=['data'])
 k8s_resource('redis-exporter', labels=['data'], resource_deps=['redis'])
 k8s_resource('minio', labels=['data'])
@@ -94,14 +96,14 @@ k8s_resource('fluvio-sc', labels=['pipeline'])
 k8s_resource('faktory-server', labels=['scheduling'])
 
 # --- gcp (namespace: gcp) — single label: "gcp"
-k8s_resource('pubsub-emulator', labels=['gcp'])
-k8s_resource('datastore-emulator', labels=['gcp'])
-k8s_resource('bigtable-emulator', labels=['gcp'])
-k8s_resource(
-    'cloud-functions',
-    labels=['gcp'],
-    resource_deps=['pubsub-emulator', 'datastore-emulator', 'bigtable-emulator'],
-)
+#k8s_resource('pubsub-emulator', labels=['gcp'])
+#k8s_resource('datastore-emulator', labels=['gcp'])
+#k8s_resource('bigtable-emulator', labels=['gcp'])
+#k8s_resource(
+#    'cloud-functions',
+#    labels=['gcp'],
+#    resource_deps=['pubsub-emulator', 'datastore-emulator', 'bigtable-emulator'],
+#)
 
 local_resource(
     'cluster-info',

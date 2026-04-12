@@ -6,6 +6,5 @@ kind: Kustomization
 
 resources:
   - storageclass-local.yaml
-  - ../../microscaler-supabase/k8s/overlays/shared-kind
   - platform-data
   - observability
