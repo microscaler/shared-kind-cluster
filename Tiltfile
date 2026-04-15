@@ -39,15 +39,32 @@ k8s_yaml(kustomize('./k8s'))
 # --- data (namespace: data) — single label: "data"
 # Port-forward matches microscaler-supabase Service postgres (see k8s/data/postgres.yaml). Kind may also expose
 # NodePort via kind-config hostPort 5433 — use either localhost:5432 (Tilt) or 127.0.0.1:5433 per cluster docs.
+#
+# Replicas: host ports **6544** / **6546** → pod **5432** (aligns with app repos e.g. Lifeguard `TEST_REPLICA_URL` /
+# `TEST_REPLICA_URL_SECOND`). Redis **6545** → **6379** so local tools/tests do not need a separate `kubectl port-forward`.
 k8s_resource(
     'postgres-primary',
     port_forwards=['5432:5432'],
     labels=['data'],
 )
-k8s_resource('postgres-replica-0', labels=['data'], resource_deps=['postgres-primary'])
-k8s_resource('postgres-replica-1', labels=['data'], resource_deps=['postgres-primary'])
+k8s_resource(
+    'postgres-replica-0',
+    port_forwards=['6544:5432'],
+    labels=['data'],
+    resource_deps=['postgres-primary'],
+)
+k8s_resource(
+    'postgres-replica-1',
+    port_forwards=['6546:5432'],
+    labels=['data'],
+    resource_deps=['postgres-primary'],
+)
 
-k8s_resource('redis', labels=['data'])
+k8s_resource(
+    'redis',
+    port_forwards=['6545:6379'],
+    labels=['data'],
+)
 k8s_resource('redis-exporter', labels=['data'], resource_deps=['redis'])
 k8s_resource('minio', labels=['data'])
 k8s_resource('mailpit', labels=['data'])
@@ -115,5 +132,6 @@ print('')
 print('  Shared Kind cluster (kind-kind)')
 print('  kustomize ./k8s: Supabase + platform-data + observability (includes stack Namespaces)')
 print('  Tilt groups: data | observe | pipeline | scheduling | gcp (one label per resource)')
+print('  Host DB/Redis (when port-forwards enabled): primary :5432, replica-0 :6544, replica-1 :6546, redis :6545')
 print('  Tilt UI port: %s (override: tilt up -- --tilt_port=...)' % tilt_port)
 print('')

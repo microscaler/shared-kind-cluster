@@ -81,6 +81,7 @@ tilt up
 
 - **Tilt UI** defaults to port **10348** (avoids collisions with app Tilts that use other ports). Override: `tilt up --port=10349` or set `tilt_port` in `tilt_config.json` / env patterns your team uses.
 - The Tiltfile only allows context **`kind-kind`** so you do not deploy shared infra to the wrong cluster by mistake.
+- **Host port-forwards** (namespace `data`, see `Tiltfile`): Postgres primary **5432**, streaming replica-0 **6544**, replica-1 **6546**, Redis **6545** (to pod **6379**). App repos (e.g. Lifeguard `TEST_REPLICA_URL`) assume **6544** / **6545** on `127.0.0.1` when this Tilt is up.
 
 ### Tilt and namespaces
 
