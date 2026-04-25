@@ -15,6 +15,7 @@ resources:
   - postgres-replica-1-pvc.yaml
   - postgres-replica-1-service.yaml
   - claims.yaml
+  - postgres-exporter.yaml
 
 configMapGenerator:
   - name: postgres-pact-init

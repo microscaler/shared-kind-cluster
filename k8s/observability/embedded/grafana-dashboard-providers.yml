@@ -1,4 +1,9 @@
-# Loads JSON dashboards from /var/lib/grafana/dashboards/hauliage (ConfigMap from hauliage repo).
+# Dashboard providers for Grafana.
+# Each provider loads JSON dashboards from a specific folder.
+# - hauliage: Hauliage app dashboards (optional ConfigMap)
+# - databases: Core infrastructure dashboards (postgres, redis)
+# - postgres-overview: PostgreSQL primary & replica overview
+# - hauliage-db-perf: Hauliage database performance dashboard
 apiVersion: 1
 providers:
   - name: hauliage
@@ -19,3 +24,21 @@ providers:
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards/cluster
+  - name: postgres-overview
+    orgId: 1
+    folder: PostgreSQL
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/postgres-overview
+  - name: hauliage-db-perf
+    orgId: 1
+    folder: PostgreSQL
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/hauliage-db-perf

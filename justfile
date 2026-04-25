@@ -101,31 +101,59 @@ status: context
 # Tilt (shared infra: kustomize ./k8s includes Namespaces; default UI port 10348)
 # -----------------------------------------------------------------------------
 
-# Registry + context + wire + platform namespaces + Tilt
+# Start infrastructure (registry, cluster, wire, namespaces) via systemd
+infra-up:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Starting shared Kind cluster infrastructure..."
+    systemctl --user start microscaler-shared-kind-infra.service
+    for i in $(seq 1 60); do
+        if kind get clusters 2>/dev/null | grep -q '^kind$'; then
+            echo "Kind cluster is ready."
+            exit 0
+        fi
+        sleep 2
+    done
+    echo "WARNING: Kind cluster did not become ready within 2 minutes"
+    exit 1
+
+infra-down:
+    systemctl --user stop microscaler-shared-kind-infra.service || true
+    # Don't delete the cluster on infra-down — other app Tilts depend on it
+
+# Start Tilt via systemd (port 10348, shared infra UI)
 tilt-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    just registry
-    kubectl config use-context kind-kind
-    just registry-wire
-    kubectl apply -f k8s/platform-namespaces.yaml
-    tilt up --port=10348
+    echo "Starting shared Kind Tilt via systemd (port 10348)..."
+    systemctl --user start tilt-shared-kind.service
+    echo "Tilt UI on http://0.0.0.0:10348 (waiting for ready)..."
+    for i in $(seq 1 60); do
+        if curl -sf http://localhost:10348/api/v1/info >/dev/null 2>&1; then
+            echo "Tilt is ready at http://0.0.0.0:10348"
+            exit 0
+        fi
+        sleep 2
+    done
+    echo "WARNING: Tilt did not become ready within 2 minutes"
+    exit 1
 
 tilt-down:
-    tilt down || true
+    systemctl --user stop tilt-shared-kind.service || true
 
-# Registry, cluster if missing, wire, platform namespaces, Tilt (shared infra UI port 10348)
+# Start infrastructure + Tilt
 dev-up:
     #!/usr/bin/env bash
     set -euo pipefail
-    just registry
-    if ! kind get clusters 2>/dev/null | grep -q '^kind$'; then
-        kind create cluster --config kind-config.yaml --wait 120s
-    fi
-    kubectl config use-context kind-kind
-    just registry-wire
-    kubectl apply -f k8s/platform-namespaces.yaml
-    tilt up --port=10348
+    just infra-up
+    just tilt-up
 
-# Stop shared Tilt (cluster + kind-registry unchanged)
-dev-down: tilt-down
+# Stop Tilt, then infrastructure (cluster + kind-registry unchanged)
+dev-down:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Stopping shared Kind Tilt..."
+    tilt-down
+    echo "Stopping shared Kind cluster infrastructure..."
+    infra-down
+    echo "[OK] Tilt and infrastructure stopped (cluster + registry unchanged)"

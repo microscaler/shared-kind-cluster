@@ -23,6 +23,8 @@ nodes:
         hostPort: 8080
         protocol: TCP
       # Grafana (BRRTRouter vs Hauliage use different host ports)
+      # NOTE: These hostPort mappings are REDUNDANT - shared-kind-cluster Tiltfile already does
+      # port_forward 3000:3000. Kept for non-Tilt access (CLI tools that connect directly).
       - containerPort: 31300
         hostPort: 3000
         protocol: TCP
@@ -30,6 +32,8 @@ nodes:
         hostPort: 3002
         protocol: TCP
       # Loki / Pyroscope / OTEL
+      # NOTE: These hostPort mappings are REDUNDANT - shared-kind-cluster Tiltfile already
+      # does port_forward for each. Kept for non-Tilt access.
       - containerPort: 31310
         hostPort: 3100
         protocol: TCP

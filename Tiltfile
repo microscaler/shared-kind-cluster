@@ -36,6 +36,27 @@ local_resource(
 
 k8s_yaml(kustomize('./k8s'))
 
+# Dashboard ConfigMaps are applied via local_resource (not k8s_yaml) to avoid introspection
+# cycles: when embedded/ JSONs change, kustomize re-renders → ConfigMaps update → Grafana pod
+# restarts → pod state change → k8s_yaml re-introspects → kustomize re-renders → infinite loop.
+#
+# By applying dashboards via kubectl create configmap --from-file instead, ConfigMap changes
+# don't touch the main k8s_yaml resource graph, so no pod restarts are triggered.
+# Kubernetes ConfigMap volume mounts are symlinked, so the new JSON content shows up
+# in Grafana automatically without any pod restart.
+local_resource(
+    'apply-postgres-dashboards',
+    """kubectl create configmap grafana-postgres-overview \\
+       --from-file=postgres-overview.json=k8s/observability/embedded/grafana-dashboard-postgres-overview.json \\
+       --dry-run=client -o yaml \\
+     | kubectl apply -n observability -f - \\
+     && kubectl create configmap grafana-hauliage-db-perf \\
+       --from-file=hauliage-db-perf.json=k8s/observability/embedded/grafana-dashboard-hauliage-db-perf.json \\
+       --dry-run=client -o yaml \\
+     | kubectl apply -n observability -f -""",
+    deps=['k8s/observability/embedded/'],
+)
+
 # --- data (namespace: data) — single label: "data"
 # Port-forward matches microscaler-supabase Service postgres (see k8s/data/postgres.yaml). Kind may also expose
 # NodePort via kind-config hostPort 5433 — use either localhost:5432 (Tilt) or 127.0.0.1:5433 per cluster docs.
@@ -79,32 +100,32 @@ k8s_resource('inbucket', labels=['data'])
 k8s_resource('imgproxy', labels=['data'], resource_deps=['minio'])
 
 # --- observe (namespace: observability) — single label: "observe"
-# Port-forwards: localhost → Service (may overlap kind-config hostPort mappings; use one access path).
+# Port-forwards for Grafana added via Tilt so the UI refreshes automatically on
+# dashboard JSON changes. KIND hostPort mappings still provide access on fixed
+# host ports (3000, 3100, 9090, 16686, 4317/4318). Tilt port-forwards use
+# alternative ports to avoid "bind: address already in use" conflicts with KIND.
+k8s_resource(
+    'grafana',
+    port_forwards=['9230:3000'],
+    labels=['observe'],
+)
 k8s_resource(
     'prometheus',
-    port_forwards=['9090:9090'],
     labels=['observe'],
 )
 k8s_resource(
     'loki',
-    port_forwards=['3100:3100'],
     labels=['observe'],
 )
 k8s_resource(
     'jaeger',
-    port_forwards=[
-        '16686:16686',
-        '4317:4317',
-        '4318:4318',
-    ],
     labels=['observe'],
 )
 k8s_resource(
-    'grafana',
-    port_forwards=['3000:3000'],
+    'otel-collector',
     labels=['observe'],
+    resource_deps=['jaeger'],
 )
-k8s_resource('otel-collector', labels=['observe'], resource_deps=['jaeger'])
 
 # --- pipeline — single label: "pipeline"
 k8s_resource('fluvio-sc', labels=['pipeline'])
