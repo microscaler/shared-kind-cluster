@@ -1,5 +1,12 @@
 # Shared Kind cluster (microscaler)
 
+## For AI assistants and automation
+
+- **[`AGENTS.md`](./AGENTS.md)** — rules for this repository (context, namespaces, secrets, where dashboards live).
+- **[`docs/llmwiki/`](./docs/llmwiki/)** — compounding knowledge base: start with [`docs/llmwiki/README.md`](./docs/llmwiki/README.md), then `SCHEMA.md` and `index.md`.
+
+---
+
 Single **default** Kind cluster for local development when you cannot run one cluster per project. Application workloads stay **namespaced** (`pricewhisperer`, `hauliage`, `tiffany`, …). Shared platform pieces that are not tied to a single app live here under:
 
 | Namespace        | Purpose                                      |
