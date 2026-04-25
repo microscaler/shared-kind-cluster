@@ -13,6 +13,7 @@ Catalog of all wiki pages. Per [`SCHEMA.md`](./SCHEMA.md), read this **before** 
 
 - [`topics/shared-kind-cluster-layout.md`](./topics/shared-kind-cluster-layout.md) — Repo map: namespaces, kustomize composition, `just` / Tilt, sibling `microscaler-supabase`.
 - [`topics/observability-stack.md`](./topics/observability-stack.md) — Prometheus, Loki, Promtail, Grafana; embedded JSON location; common pitfalls (metric names, datasource UIDs, Grafana 12 `byName`).
+- [`topics/auto-research-observability-loop.md`](./topics/auto-research-observability-loop.md) — How to run the **auto-research** loop (A–D), charter links, BRRTRouter pattern comparison.
 
 ## Cross-references (outside this repo)
 

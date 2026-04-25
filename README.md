@@ -4,6 +4,7 @@
 
 - **[`AGENTS.md`](./AGENTS.md)** — rules for this repository (context, namespaces, secrets, where dashboards live).
 - **[`docs/llmwiki/`](./docs/llmwiki/)** — compounding knowledge base: start with [`docs/llmwiki/README.md`](./docs/llmwiki/README.md), then `SCHEMA.md` and `index.md`.
+- **[`auto-research/`](./auto-research/)** — **observability** improvement loop (charter, experiment log, Python helper), modeled on BRRTRouter’s `auto-research/`: [`auto-research/docs/OBSERVABILITY_CONTROL_SURFACE_AND_LOG.md`](./auto-research/docs/OBSERVABILITY_CONTROL_SURFACE_AND_LOG.md), then `python auto-research/scripts/observability_iteration.py` from the repo root.
 
 ---
 

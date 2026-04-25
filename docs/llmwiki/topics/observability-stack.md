@@ -30,3 +30,4 @@ Namespace **`observability`** runs Prometheus (metrics), Loki (logs), Promtail (
 
 - Root `README` — default Grafana `admin` / `admin` (local only).
 - [shared-kind-cluster-layout.md](./shared-kind-cluster-layout.md) — where observability fits in the full kustomize tree.
+- [auto-research-observability-loop.md](./auto-research-observability-loop.md) — scheduled / iterative improvements (charter, experiment log, `observability_iteration.py`).

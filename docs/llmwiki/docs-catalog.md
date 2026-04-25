@@ -17,6 +17,7 @@ What formal documentation and manifests the wiki is expected to reflect. When an
 | [`../../Tiltfile`](../../Tiltfile) | Allowed k8s contexts, `kustomize ./k8s`, local commands. |
 | [`../../justfile`](../../justfile) | `just dev-up`, registry, cluster create/delete, namespace apply. |
 | [`../../kind-config.yaml`](../../kind-config.yaml) | Kind cluster config; port mappings for local dev. |
+| [`../../auto-research/`](../../auto-research/) | Observability **auto-research** — [`OBSERVABILITY_CONTROL_SURFACE_AND_LOG.md`](../../auto-research/docs/OBSERVABILITY_CONTROL_SURFACE_AND_LOG.md), [`observability_iteration.py`](../../auto-research/scripts/observability_iteration.py) (BRRTRouter-style loop, scoped to Kind). |
 
 ## `k8s/` (selected)
 

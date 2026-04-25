@@ -23,6 +23,7 @@
 | [`docs/llmwiki/`](./docs/llmwiki/) | LLM-maintained knowledge — **start at `README.md`**. |
 | [`k8s/`](./k8s/) | Kustomize tree: `platform-data/`, `observability/`, top-level `kustomization.yaml`. |
 | [`Tiltfile`](./Tiltfile) | Allowed k8s context, `kustomize ./k8s`, local resources. |
+| [`auto-research/`](./auto-research/) | **Observability research loop** — charter, experiment log, Python helper (see below). |
 
 App-specific dashboards may live in product repos; Grafana-related JSON *maintained in this repo* is under `k8s/observability/embedded/`.
 
@@ -57,6 +58,16 @@ App-specific dashboards may live in product repos; Grafana-related JSON *maintai
 ### 7. Observability and dashboards
 
 **Rule:** Data sources and embedded dashboards for this stack live under `k8s/observability/`. When changing Grafana JSON, validate against the Prometheus/Loki data sources the cluster actually provisions (see `k8s/observability/embedded/*`). Favor correct metric names and datasource UIDs over copy-paste from unrelated dashboards.
+
+### 8. Autonomous observability research
+
+**Rule:** For **scheduled or background** work to improve stack observability (metrics, logs, traces, dashboards for core Kind services), follow the same **charter + log + script** pattern as BRRTRouter’s `auto-research/`, but scoped to this repo.
+
+- **Charter and experiment log:** [`auto-research/docs/OBSERVABILITY_CONTROL_SURFACE_AND_LOG.md`](./auto-research/docs/OBSERVABILITY_CONTROL_SURFACE_AND_LOG.md) — *control surface* (what is in scope), *time budget*, *what we tried / won’t repeat*.
+- **Procedural how-to:** [`docs/llmwiki/topics/auto-research-observability-loop.md`](./docs/llmwiki/topics/auto-research-observability-loop.md).
+- **Helper (no new shell workflow scripts):** `python auto-research/scripts/observability_iteration.py` from the repo root (`--verify-root`, `--run-local-gates`).
+
+Do not expand the control-surface table to cover another team’s app-only metrics without an explicit review; link those dashboards from product repos instead.
 
 ---
 
