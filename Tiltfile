@@ -13,6 +13,7 @@
 #   pipeline     — Fluvio / streaming
 #   scheduling   — Faktory
 #   gcp          — GCP emulators + functions shim
+#   ai           — LLMRouter (ai namespace)
 
 allow_k8s_contexts(['kind-kind'])
 
@@ -57,6 +58,32 @@ local_resource(
     deps=['k8s/observability/embedded/'],
 )
 
+# DGX Spark dashboards — three separate ConfigMaps so Grafana's "Sparks" folder
+# splits cleanly: cluster overview, vLLM performance, GX10 abrupt-power-off hunt.
+# Same kubectl create configmap pattern as above to avoid kustomize re-render
+# loops on JSON edits. Mounted optional in grafana.yaml — Grafana boots either way.
+# See cylon-local-infra/llmwiki/concepts/sparks-observability-pipeline.md.
+local_resource(
+    'apply-sparks-dashboards',
+    """kubectl create configmap grafana-sparks-cluster \\
+       --from-file=spark-cluster.json=k8s/observability/embedded/grafana-dashboard-spark-cluster.json \\
+       --dry-run=client -o yaml \\
+     | kubectl apply -n observability -f - \\
+     && kubectl create configmap grafana-sparks-vllm \\
+       --from-file=vllm-performance.json=k8s/observability/embedded/grafana-dashboard-vllm-performance.json \\
+       --dry-run=client -o yaml \\
+     | kubectl apply -n observability -f - \\
+     && kubectl create configmap grafana-sparks-gx10-hunt \\
+       --from-file=gx10-power-off-hunt.json=k8s/observability/embedded/grafana-dashboard-gx10-power-off-hunt.json \\
+       --dry-run=client -o yaml \\
+     | kubectl apply -n observability -f -""",
+    deps=[
+        'k8s/observability/embedded/grafana-dashboard-spark-cluster.json',
+        'k8s/observability/embedded/grafana-dashboard-vllm-performance.json',
+        'k8s/observability/embedded/grafana-dashboard-gx10-power-off-hunt.json',
+    ],
+)
+
 # --- data (namespace: data) — single label: "data"
 # Port-forward matches microscaler-supabase Service postgres (see k8s/data/postgres.yaml). Kind may also expose
 # NodePort via kind-config hostPort 5433 — use either localhost:5432 (Tilt) or 127.0.0.1:5433 per cluster docs.
@@ -86,52 +113,115 @@ k8s_resource(
     port_forwards=['6545:6379'],
     labels=['data'],
 )
-k8s_resource('redis-exporter', labels=['data'], resource_deps=['redis'])
-k8s_resource('minio', labels=['data'])
-k8s_resource('mailpit', labels=['data'])
+
 k8s_resource(
-    'mailhog',
-    port_forwards=['31027:1025', '31028:8025'],
+    'minio',
+    port_forwards=['9200:9000', '9201:9001'],
     labels=['data'],
 )
-k8s_resource('pact-postgres', labels=['data'])
-k8s_resource('pact-broker', labels=['data'], resource_deps=['pact-postgres'])
-k8s_resource('inbucket', labels=['data'])
-k8s_resource('imgproxy', labels=['data'], resource_deps=['minio'])
-
-# --- observe (namespace: observability) — single label: "observe"
-# Port-forwards for Grafana added via Tilt so the UI refreshes automatically on
-# dashboard JSON changes. KIND hostPort mappings still provide access on fixed
-# host ports (3000, 3100, 9090, 16686, 4317/4318). Tilt port-forwards use
-# alternative ports to avoid "bind: address already in use" conflicts with KIND.
 k8s_resource(
-    'grafana',
-    port_forwards=['9230:3000'],
-    labels=['observe'],
+    'mailpit',
+    port_forwards=['31025:1025', '31026:8025'],
+    labels=['data'],
 )
 k8s_resource(
+    'mailhog',
+    port_forwards=['31029:1025', '31030:8025'],
+    labels=['data'],
+)
+k8s_resource(
+    'pact-postgres',
+    port_forwards=['5433:5432'],
+    labels=['data'],
+)
+k8s_resource(
+    'pact-broker',
+    port_forwards=['9293:9292'],
+    labels=['data'],
+    resource_deps=['pact-postgres'],
+)
+k8s_resource(
+    'inbucket',
+    port_forwards=['2501:2500', '7902:7901'],
+    labels=['data'],
+)
+k8s_resource(
+    'imgproxy',
+    port_forwards=['5002:5001'],
+    labels=['data'],
+    resource_deps=['minio'],
+)
+k8s_resource(
+    'redis-exporter',
+    port_forwards=['9121:9121'],
+    labels=['data'],
+    resource_deps=['redis'],
+)
+k8s_resource(
+    'postgres-exporter',
+    port_forwards=['9187:9187'],
+    labels=['data'],
+)
+
+# --- observe (namespace: observability) — single label: "observe"
+# NOTE: Grafana deployment is not present (k8s/observability/grafana.yaml is empty).
+# KIND hostPort mappings still provide access on fixed host ports (3000, 3100, 9090, 16686, 4317/4318).
+k8s_resource(
     'prometheus',
+    port_forwards=['9091:9090'],
     labels=['observe'],
 )
 k8s_resource(
     'loki',
+    port_forwards=['3110:3100'],
     labels=['observe'],
 )
 k8s_resource(
     'jaeger',
+    port_forwards=['16687:16686'],
     labels=['observe'],
 )
 k8s_resource(
     'otel-collector',
+    port_forwards=['4319:4317', '4320:4318', '9465:9464'],
     labels=['observe'],
     resource_deps=['jaeger'],
 )
 
 # --- pipeline — single label: "pipeline"
-k8s_resource('fluvio-sc', labels=['pipeline'])
+k8s_resource(
+    'fluvio-sc',
+    port_forwards=['9004:9003'],
+    labels=['pipeline'],
+)
 
 # --- scheduling — single label: "scheduling"
-k8s_resource('faktory-server', labels=['scheduling'])
+k8s_resource(
+    'faktory-server',
+    port_forwards=['7421:7419', '7422:7420'],
+    labels=['scheduling'],
+)
+
+# --- ai (namespace: ai) — single label: "ai"
+# LLMRouter: Python FastAPI service with ML deps (torch, transformers, gradio).
+# docker_build() for incremental layer caching; only loads into Kind when image changes.
+llmrouter_src = '../LLMRouter'
+llmrouter_k8s = 'k8s/ai/'
+
+# Docker build with incremental layer caching — heavy deps are copied/installed first so
+# subsequent dev iterations (changing only Python source) skip the 8+ min ML dependency install.
+docker_build(
+    'llmrouter:latest',
+    llmrouter_src,
+    dockerfile='%s/Dockerfile' % llmrouter_src,
+    build_args={},
+)
+
+k8s_resource(
+    'llmrouter',
+    port_forwards=['8001:8000'],
+    labels=['ai'],
+)
 
 # --- gcp (namespace: gcp) — single label: "gcp"
 #k8s_resource('pubsub-emulator', labels=['gcp'])
@@ -145,7 +235,7 @@ k8s_resource('faktory-server', labels=['scheduling'])
 
 local_resource(
     'cluster-info',
-    'kubectl config current-context && kubectl get ns data observability pipeline scheduling gcp 2>/dev/null && kubectl get pods -n data -l app=postgres 2>/dev/null; kubectl get pods -n observability 2>/dev/null || true',
+    'kubectl config current-context && kubectl get ns data observability pipeline scheduling gcp ai 2>/dev/null && kubectl get pods -n data -l app=postgres 2>/dev/null; kubectl get pods -n observability 2>/dev/null || true',
     allow_parallel=True,
 )
 
