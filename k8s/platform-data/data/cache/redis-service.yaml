@@ -6,11 +6,14 @@ metadata:
   labels:
     app: redis
 spec:
-  type: ClusterIP
+  # NodePort backs the kind extraPortMapping (containerPort 30379 → hostPort 6379).
+  # Verify with: just ms02-cluster-portmap-check (cylon-local-infra).
+  type: NodePort
   ports:
     - name: redis
       port: 6379
       targetPort: redis
       protocol: TCP
+      nodePort: 30379
   selector:
     app: redis

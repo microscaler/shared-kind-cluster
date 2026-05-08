@@ -5,12 +5,17 @@ metadata:
   labels:
     app: prometheus
 spec:
+  # NodePort backs the kind extraPortMapping (containerPort 31090 → hostPort 9090).
+  # Lets LAN-side tools (e.g. cylon-local-infra `just spark-observability-probe`)
+  # PromQL the cluster directly without going through Tilt port-forwards.
+  type: NodePort
   selector:
     app: prometheus
   ports:
     - name: http
       port: 9090
       targetPort: http
+      nodePort: 31090
 ---
 apiVersion: apps/v1
 kind: Deployment

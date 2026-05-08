@@ -6,11 +6,15 @@ metadata:
   labels:
     app: postgres-primary
 spec:
-  type: ClusterIP
+  # NodePort backs the kind extraPortMapping (containerPort 30432 → hostPort 5433).
+  # See cylon-local-infra/llmwiki/concepts/sparks-observability-pipeline.md.
+  # Verify with: just ms02-cluster-portmap-check
+  type: NodePort
   ports:
     - name: postgres
       port: 5432
       targetPort: postgres
       protocol: TCP
+      nodePort: 30432
   selector:
     app: postgres-primary

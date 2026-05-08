@@ -14,6 +14,14 @@ processors:
 exporters:
   prometheus:
     endpoint: "0.0.0.0:9464"
+    # Embed OTLP resource attributes (e.g. host=nvidia1, cluster=cylon-sparks,
+    # os_kernel=6.17.0-1008-nvidia, set by Spark otel-agents) as labels on
+    # every exported Prometheus metric, instead of dropping them into a
+    # separate `target_info` series. Without this, Grafana panels can't filter
+    # by `host` / `cluster` directly and have to JOIN against target_info,
+    # which is brittle. See cylon-local-infra/llmwiki/concepts/sparks-observability-pipeline.md.
+    resource_to_telemetry_conversion:
+      enabled: true
   otlp/jaeger:
     endpoint: "jaeger:4317"
     tls:

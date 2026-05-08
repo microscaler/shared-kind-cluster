@@ -5,15 +5,23 @@ metadata:
   labels:
     app: otel-collector
 spec:
+  # NodePort backs the kind extraPortMappings (containerPort 31417/31418 → hostPort 4317/4318).
+  # Without this, ms02:4317 → docker-proxy → kind:31417 → kube-proxy → no Service → refused.
+  # Required for Spark hosts to push OTLP metrics/traces from the LAN; see
+  # roles/spark_observability in cylon-local-infra and
+  # llmwiki/concepts/sparks-observability-pipeline.md.
+  type: NodePort
   selector:
     app: otel-collector
   ports:
     - name: otlp-grpc
       port: 4317
       targetPort: otlp-grpc
+      nodePort: 31417
     - name: otlp-http
       port: 4318
       targetPort: otlp-http
+      nodePort: 31418
     - name: prometheus
       port: 9464
       targetPort: prometheus

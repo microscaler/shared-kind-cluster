@@ -31,11 +31,27 @@ App-specific dashboards may live in product repos; Grafana-related JSON *maintai
 
 ## Core rules
 
-### 1. Target context is explicit
+### 1. Never stop or delete the shared Kind cluster
+
+**Rule:** The Kind cluster (`kind`) is **persistent shared infrastructure**. Multiple product repos (Hauliage, Tiffany, Lifeguard, BRRTRouter, …) depend on it running concurrently — its namespaces (`data`, `observability`, `pipeline`, `scheduling`, `gcp`) are referenced by Tilt configs, CI, and other agents across sessions.
+
+**Do NOT:**
+- `kind delete cluster` / `just cluster-delete` without explicit user authorization
+- `just infra-down` (stops systemd services but leaves the cluster intact — this is fine)
+- Scale any core deployment to 0 replicas (postgres, prometheus, etc.) as a "quick fix"
+
+**Do:**
+- `just cluster-create` — idempotent; safe to run if you're unsure
+- `kind get nodes` / `kubectl get ns` — check status
+- Use `kubectl` or `just` commands to inspect or modify resources
+
+**When in doubt about cluster lifecycle:** ask the user before any delete/recreate operation. There is no "undo" for `kind delete cluster` — PVC data and deployed workloads are lost.
+
+### 2. Target context is explicit
 
 **Rule:** Only deploy from this repository when `kubectl` current context is **`kind-kind`** (or the team-agreed shared Kind name for this stack). The `Tiltfile` enforces allowed contexts — do not bypass with `--force` against production clusters.
 
-### 2. Namespace bootstrap order
+### 3. Namespace bootstrap order
 
 **Rule:** Stack namespaces must exist before app workloads that reference them. Use `kubectl apply -f k8s/platform-namespaces.yaml` (or `just apply-platform-namespaces`) before or via `just dev-up` / `just tilt-up` as documented in [`README.md`](./README.md). Do not remove `Namespace` objects from the kustomize output to "simplify" Tilt — that can cause Tilt to delete namespaces and break sibling repos.
 

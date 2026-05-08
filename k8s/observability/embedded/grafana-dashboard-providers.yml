@@ -42,3 +42,34 @@ providers:
     allowUiUpdates: true
     options:
       path: /var/lib/grafana/dashboards/hauliage-db-perf
+  # DGX Spark dashboards (cluster overview, vLLM performance, GX10 hard-off
+  # hunt). Backed by metrics pushed from each Spark via the cylon-local-infra
+  # roles/spark_observability OTel agent and Promtail. See
+  # cylon-local-infra/llmwiki/concepts/sparks-observability-pipeline.md.
+  - name: sparks-cluster
+    orgId: 1
+    folder: Sparks
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/sparks-cluster
+  - name: sparks-vllm
+    orgId: 1
+    folder: Sparks
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/sparks-vllm
+  - name: sparks-gx10-hunt
+    orgId: 1
+    folder: Sparks
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/sparks-gx10-hunt

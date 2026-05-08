@@ -113,12 +113,15 @@ metadata:
   labels:
     app: pact-broker
 spec:
-  type: ClusterIP
+  # NodePort backs the kind extraPortMapping (containerPort 30929 → hostPort 9292).
+  # Verify with: just ms02-cluster-portmap-check (cylon-local-infra).
+  type: NodePort
   ports:
   - port: 9292
     targetPort: 9292
     protocol: TCP
     name: http
+    nodePort: 30929
   selector:
     app: pact-broker
 

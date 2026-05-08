@@ -8,3 +8,4 @@ resources:
   - storageclass-local.yaml
   - platform-data
   - observability
+  - ai

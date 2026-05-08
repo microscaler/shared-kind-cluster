@@ -1,0 +1,28 @@
+- generic [ref=e4]:
+  - link "Skip to main content" [ref=e5] [cursor=pointer]:
+    - /url: "#pageContent"
+    - generic [ref=e6]: Skip to main content
+  - banner [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - button "Main menu" [ref=e10] [cursor=pointer]:
+          - img [ref=e13]
+        - link "Grafana" [ref=e14] [cursor=pointer]:
+          - /url: /
+          - img "Grafana" [ref=e15]
+        - navigation "Breadcrumbs" [ref=e16]:
+          - list [ref=e17]:
+            - listitem [ref=e18]:
+              - generic "Dashboards" [ref=e19]
+      - generic [ref=e20]:
+        - button "Search..." [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+        - button "Help" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+        - link "Sign in" [ref=e27] [cursor=pointer]:
+          - /url: /d/explore?orgId=1&left=%7B%22datasource%22:%22loki%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22expr%22:%22%7B%7D%22,%22datasource%22:%7B%22type%22:%22loki%22,%22uid%22:%22loki%22%7D,%22editorMode%22:%22builder%22%7D%5D,%22range%22:%7B%22from%22:%22now-6h%22,%22to%22:%22now%22%7D%7D&forceLogin=true
+  - main [ref=e30]:
+    - log [ref=e31]
+    - generic [ref=e37]:
+      - text: Loading ...
+      - img [ref=e39]

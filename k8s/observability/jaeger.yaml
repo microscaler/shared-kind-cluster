@@ -36,12 +36,20 @@ metadata:
   labels:
     app: jaeger
 spec:
+  # NodePort backs the kind extraPortMapping (containerPort 31166 → hostPort 16686).
+  # Without this, ms02:16686 → docker-proxy → kind:31166 → kube-proxy → no Service
+  # → "connection refused" from the LAN. OTLP receivers (4317/4318) intentionally
+  # stay ClusterIP-only — `otel-collector` is the OTLP entry point for the cluster
+  # and forwards traces to `jaeger:4317` over ClusterIP. Exposing Jaeger's OTLP
+  # to the LAN would create a competing receiver on the same ports.
+  type: NodePort
   selector:
     app: jaeger
   ports:
     - name: ui
       port: 16686
       targetPort: 16686
+      nodePort: 31166
     - name: otlp-grpc
       port: 4317
       targetPort: 4317
