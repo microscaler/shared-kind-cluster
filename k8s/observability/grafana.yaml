@@ -103,6 +103,8 @@ spec:
         - name: grafana-postgres-overview
           configMap:
             name: grafana-postgres-overview
+            optional: true
         - name: grafana-hauliage-db-perf
           configMap:
             name: grafana-hauliage-db-perf
+            optional: true
