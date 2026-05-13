@@ -5,12 +5,17 @@ metadata:
   labels:
     app: grafana
 spec:
+  # NodePort so the kind extraPortMapping (kind-config.yaml: containerPort 31300 → hostPort 3000)
+  # actually back a real listener inside the kind container. Without this, LAN access to
+  # :3000 reaches docker-proxy → kind:31300 → kube-proxy refused (no Service on that NodePort).
+  type: NodePort
   selector:
     app: grafana
   ports:
     - name: http
       port: 3000
       targetPort: http
+      nodePort: 31300
 ---
 apiVersion: apps/v1
 kind: Deployment
