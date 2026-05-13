@@ -167,7 +167,7 @@ k8s_resource(
 # KIND hostPort mappings provide access on fixed host ports (3000, 3100, 9090, 16686, 4317/4318).
 k8s_resource(
     'grafana',
-    port_forwards=['3101:3000'],
+    port_forwards=['3000:3000'],
     labels=['observe'],
 )
 k8s_resource(
