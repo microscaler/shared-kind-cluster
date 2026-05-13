@@ -166,6 +166,11 @@ k8s_resource(
 # --- observe (namespace: observability) — single label: "observe"
 # KIND hostPort mappings provide access on fixed host ports (3000, 3100, 9090, 16686, 4317/4318).
 k8s_resource(
+    'grafana',
+    port_forwards=['3101:3000'],
+    labels=['observe'],
+)
+k8s_resource(
     'prometheus',
     port_forwards=['9091:9090'],
     labels=['observe'],
