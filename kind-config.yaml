@@ -13,6 +13,17 @@ nodes:
         nodeRegistration:
           kubeletExtraArgs:
             node-labels: "ingress-ready=true"
+      - |
+        kind: KubeletConfiguration
+        evictionHard:
+          memory.available: "4Gi"
+          nodefs.available: "10%"
+        systemReserved:
+          cpu: "500m"
+          memory: "2Gi"
+        kubeReserved:
+          cpu: "500m"
+          memory: "2Gi"
     extraPortMappings:
       # PriceWhisperer — API
       - containerPort: 30080
@@ -53,9 +64,10 @@ nodes:
       - containerPort: 30432
         hostPort: 5433
         protocol: TCP
-      # Redis
+      # Redis (in-cluster NodePort; host 6379 is reserved for the local
+      # test-redis-plain container, so expose the cluster redis on 6390)
       - containerPort: 30379
-        hostPort: 6379
+        hostPort: 6390
         protocol: TCP
       # PriceWhisperer mocks / MinIO / Pact
       - containerPort: 30497
@@ -84,6 +96,15 @@ nodes:
       - containerPort: 31166
         hostPort: 16686
         protocol: TCP
+    # Dev workspace bind-mounts (ms02 NFS layout). Required for Cylon cylon-daemon
+    # hostPath at /home/casibbald/Workspace/microscaler/cylon → pod /workspace/cylon.
+    # Applied at cluster create only — run `just cluster-recreate` after editing.
+    extraMounts:
+      - hostPath: /home/casibbald/Workspace/microscaler
+        containerPath: /home/casibbald/Workspace/microscaler
+        readOnly: true
+        selinuxRelabel: false
+        propagation: HostToContainer
 containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".registry]

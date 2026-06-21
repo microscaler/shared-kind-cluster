@@ -84,6 +84,26 @@ cluster-create: registry
 cluster-delete:
     kind delete cluster --name kind
 
+# Recreate cluster to apply kind-config.yaml changes (extraMounts, ports). DESTRUCTIVE.
+cluster-recreate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "WARNING: Deletes the kind cluster and all in-cluster workloads/state."
+    just cluster-delete
+    just cluster-create
+    just cluster-verify-workspace-mount
+
+# Verify Cylon checkout is visible inside the Kind node (extraMounts in kind-config.yaml).
+cluster-verify-workspace-mount:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! kind get clusters 2>/dev/null | grep -q '^kind$'; then
+        echo "No Kind cluster 'kind'; run 'just cluster-create' first."
+        exit 1
+    fi
+    docker exec kind-control-plane test -f /home/casibbald/Workspace/microscaler/cylon/Cargo.toml
+    echo "OK: /home/casibbald/Workspace/microscaler/cylon visible inside Kind node."
+
 # Point kubectl at the shared cluster
 context:
     kubectl config use-context kind-kind
@@ -118,8 +138,35 @@ infra-up:
     exit 1
 
 infra-down:
-    systemctl --user stop microscaler-shared-kind-infra.service || true
-    # Don't delete the cluster on infra-down — other app Tilts depend on it
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Stopping app Tilt services that depend on Kind..."
+    for unit in tilt-shared-kind tilt-hauliage tilt-brrtrouter tilt-rerp tilt-sesame-idam tilt-cylon tilt-dcops; do
+        systemctl --user stop "${unit}.service" 2>/dev/null || true
+    done
+    echo "Stopping Kind cluster via systemd (ExecStop stops node containers)..."
+    systemctl --user stop microscaler-shared-kind-infra.service
+
+# Install/update cluster scripts + systemd unit on ms02 (~/.local/share + ~/.config/systemd/user)
+install-systemd:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dest="${HOME}/.local/share/microscaler/shared-kind"
+    unit_dest="${HOME}/.config/systemd/user"
+    mkdir -p "${dest}" "${unit_dest}"
+    install -m 0755 deploy/cluster-start.sh "${dest}/cluster-start.sh"
+    install -m 0755 deploy/cluster-stop.sh "${dest}/cluster-stop.sh"
+    install -m 0644 deploy/microscaler-shared-kind-infra.service "${unit_dest}/microscaler-shared-kind-infra.service"
+    systemctl --user daemon-reload
+    echo "Installed ${dest}/{cluster-start,cluster-stop}.sh and systemd unit."
+
+# Stop Kind node containers via systemd (registry stays up; cluster data preserved)
+kind-stop:
+    just infra-down
+
+# Start Kind node containers via systemd (applies 64 GiB Docker cap)
+kind-start:
+    systemctl --user start microscaler-shared-kind-infra.service
 
 # Start Tilt via systemd (port 10348, shared infra UI)
 tilt-up:

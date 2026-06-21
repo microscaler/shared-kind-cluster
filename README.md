@@ -58,6 +58,8 @@ From this directory:
 | `just dev-up` | **registry** → create cluster if missing → **registry-wire** → **platform-namespaces** → `tilt up` (port **10348**) |
 | `just dev-down` | `tilt down` for this repo (cluster + **kind-registry** left running) |
 | `just cluster-create` | **registry** → create **`kind`** cluster if missing → **registry-wire** |
+| `just cluster-recreate` | **DESTRUCTIVE:** delete + recreate cluster (picks up `extraMounts` / port changes) |
+| `just cluster-verify-workspace-mount` | Assert Cylon checkout is visible inside the Kind node |
 | `just cluster-delete` | `kind delete cluster --name kind` (does **not** stop the registry) |
 | `just context` | `kubectl config use-context kind-kind` |
 | `just status` | Cluster + `data` / `observability` namespaces |
@@ -159,7 +161,7 @@ On a **new** database, **`pact-postgres`** logs may include PostgreSQL **`ERROR:
 | Path              | Role |
 |-------------------|------|
 | `justfile`        | `just dev-up` / `just dev-down`, cluster create/delete, registry, context, Tilt |
-| `kind-config.yaml`| Merged `extraPortMappings` for app dev (see kind-config comments) |
+| `kind-config.yaml`| Merged `extraPortMappings` + `extraMounts` (Cylon workspace) for app dev |
 | `Tiltfile`        | `kustomize ./k8s` (data + observability) |
 | `k8s/kustomization.yaml` | Composes StorageClass + Supabase overlay + **`platform-data/`** + `observability/` (includes stack Namespaces) |
 | `k8s/observability/` | Prometheus, Loki, Promtail, Grafana, OTel |
@@ -168,9 +170,24 @@ On a **new** database, **`pact-postgres`** logs may include PostgreSQL **`ERROR:
 
 These repos symlink `kind-config.yaml` → `../../shared-kind-cluster/kind-config.yaml` (or `../…` from repo root next to `shared-kind-cluster`):
 
-- `hauliage`, `tiffany`, `lifeguard`, `PriceWhisperer`
+- `hauliage`, `cylon`, `lifeguard`, `PriceWhisperer`, `DCops`
+
+`DCops` deploys into namespaces **`netbox`** and **`dcops-system`** on **`kind-kind`**. Tilt UI port **10354**; NetBox UI via Tilt forward **8011** (avoids shared host ports **8000** / **8001**).
 
 `BRRTRouter` keeps a **copy** of the merged config at `k8s/cluster/kind-config.yaml` for standalone CI clones; keep it in sync when editing ports here. Local Tilt in BRRTRouter does **not** create the cluster — from **this** repo run **`just dev-up`** (shared infra on port **10348**), or **`just cluster-create`** if you only need the cluster without that Tilt, then run **`just dev-up`** in BRRTRouter for the app.
+
+### Cylon workspace mount (extraMounts)
+
+`kind-config.yaml` bind-mounts **`/home/casibbald/Workspace/microscaler`** into the Kind node (read-only). That makes the Cylon checkout visible to **`hostPath`** volumes in `cylon-daemon` (`/workspace/cylon` in the pod).
+
+`extraMounts` apply **only when the cluster is created**. On an existing cluster:
+
+```bash
+just cluster-verify-workspace-mount   # fails if mount missing
+just cluster-recreate                 # destructive — redeploy app Tilts after
+```
+
+After recreate: restart shared infra Tilt (`just tilt-up` or `systemctl --user start tilt-shared-kind.service`) and Cylon Tilt (`tilt-cylon.service`), then `kubectl rollout restart deployment/cylon-daemon -n cylon`.
 
 ## License
 
