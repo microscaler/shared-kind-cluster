@@ -115,7 +115,61 @@ apply-platform-namespaces: context
 # kind get clusters + stack namespaces
 status: context
     @kind get clusters
-    @kubectl get ns data observability pipeline scheduling gcp 2>/dev/null || kubectl get ns
+    @kubectl get ns data observability pipeline scheduling gcp ai cylon 2>/dev/null || kubectl get ns
+
+# -----------------------------------------------------------------------------
+# Cylon shared infra (routellm, Squid, FreeRADIUS) — k8s/cylon-infra/
+# HostPorts :4000 / :3128 / :14000 via kind-config NodePort (routing-first).
+# -----------------------------------------------------------------------------
+
+# Apply routellm ConfigMap + restart (edit k8s/cylon-infra/routellm/configmap.yaml).
+routellm-apply-config: context
+    kubectl apply -k k8s/cylon-infra/routellm
+    kubectl rollout restart deployment/routellm -n cylon
+    kubectl rollout status deployment/routellm -n cylon --timeout=120s
+
+# Verify Kind routellm → LAN vLLM (hostPort :4000 on 127.0.0.1).
+routellm-smoke-backends: context
+    #!/usr/bin/env bash
+    set -euo pipefail
+    lan_ip="${MS02_LAN_IP:-192.168.1.189}"
+    echo "==> vLLM direct (LAN)"
+    curl -sf http://192.168.1.104:8000/v1/models | jq -r '.data[].id' | head -5
+    echo "==> routellm pod → vLLM"
+    kubectl exec -n cylon deploy/routellm -- python3 -c \
+      "import urllib.request; r=urllib.request.urlopen('http://192.168.1.104:8000/v1/models'); print(r.read().decode()[:300])"
+    echo "==> routellm /v1/models (hostPort 127.0.0.1:4000)"
+    curl -sf "http://127.0.0.1:4000/v1/models" | jq -r '.data[].id'
+    echo "==> chat completion (Qwen/Qwen3.6-35B-A3B-FP8)"
+    curl -sf "http://127.0.0.1:4000/v1/chat/completions" \
+      -H "Content-Type: application/json" \
+      -d '{"model":"Qwen/Qwen3.6-35B-A3B-FP8","messages":[{"role":"user","content":"Reply with exactly: ROUTER_OK"}],"max_tokens":16}' \
+      | jq -r '.choices[0].message.content // .error.message // .'
+
+# Apply all cylon-infra manifests (ConfigMaps + workloads).
+cylon-infra-apply: context
+    kubectl apply -k k8s/cylon-infra
+
+# Apply Squid + FreeRADIUS after editing k8s/cylon-infra/{proxy,freeradius}/configmap.yaml
+cylon-proxy-apply-config: context
+    kubectl apply -k k8s/cylon-infra/proxy
+    kubectl apply -k k8s/cylon-infra/freeradius
+    kubectl rollout restart deployment/proxy deployment/freeradius -n cylon
+    kubectl rollout status deployment/proxy -n cylon --timeout=120s
+    kubectl rollout status deployment/freeradius -n cylon --timeout=120s
+
+# Multipass hostPort verify (../cylon — mpqemubr0 → kind NodePort hostPorts).
+resurrection-llmrouter-multipass-bridge:
+    just -f ../cylon/justfile resurrection-llmrouter-multipass-bridge
+
+resurrection-squid-multipass-bridge:
+    just -f ../cylon/justfile resurrection-squid-multipass-bridge
+
+resurrection-all-multipass-bridges:
+    just -f ../cylon/justfile resurrection-all-multipass-bridges
+
+resurrection-hub-multipass-bridge:
+    just -f ../cylon/justfile resurrection-hub-multipass-bridge
 
 # -----------------------------------------------------------------------------
 # Tilt (shared infra: kustomize ./k8s includes Namespaces; default UI port 10348)

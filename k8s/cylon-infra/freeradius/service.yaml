@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: freeradius
+  namespace: cylon
+  labels:
+    app: freeradius
+spec:
+  type: NodePort
+  ports:
+    - port: 1812
+      name: auth
+      protocol: UDP
+      nodePort: 31812
+    - port: 1813
+      name: acct
+      protocol: UDP
+      nodePort: 31813
+  selector:
+    app: freeradius

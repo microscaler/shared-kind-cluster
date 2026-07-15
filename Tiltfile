@@ -14,14 +14,17 @@
 #   scheduling   — Faktory
 #   gcp          — GCP emulators + functions shim
 #   ai           — LLMRouter (ai namespace)
+#   cylon-infra  — routellm, Squid proxy, FreeRADIUS (cylon namespace; port-forwards :4000, :3128)
 
 allow_k8s_contexts(['kind-kind'])
 
 update_settings(k8s_upsert_timeout_secs=300)
 
 config.define_string('tilt_port', args=False, usage='Port for Tilt web UI for this stack')
+config.define_string('host_lan_ip', args=False, usage='Legacy; cylon uses kind hostPorts on 0.0.0.0')
 cfg = config.parse()
 tilt_port = cfg.get('tilt_port', '10348')
+host_lan_ip = cfg.get('host_lan_ip', '192.168.1.189')
 os.putenv('TILT_PORT', tilt_port)
 
 # microscaler-supabase generates infra-config + infra-secrets (kustomize generators). They are not workloads,
@@ -227,6 +230,86 @@ k8s_resource(
     labels=['ai'],
 )
 
+# --- cylon-infra (namespace: cylon) — single label: "cylon-infra"
+# LiteLLM routellm + Squid AAA proxy + FreeRADIUS. Owned here so cylon app Tilt does not
+# fight over port-forwards :4000 / :3128. Cylon daemon still uses in-cluster DNS:
+#   routellm:4000, squid-proxy:3128, freeradius (UDP).
+#
+# ConfigMaps are explicit YAML (not configMapGenerator) and listed in objects= so Tilt
+# force-update re-applies them — otherwise pods mount missing *-hash ConfigMaps.
+_cylon_infra = './k8s/cylon-infra'
+
+local_resource(
+    'cylon-infra-preflight',
+    cmd='''python3 - <<'"'PY'"'
+import socket, subprocess, sys
+
+def tcp_listening(port):
+    out = subprocess.check_output(["ss", "-tlnH"], text=True, stderr=subprocess.DEVNULL)
+    return any(f":{port} " in ln for ln in out.splitlines())
+
+def udp_listening(port):
+    out = subprocess.check_output(["ss", "-ulnH"], text=True, stderr=subprocess.DEVNULL)
+    return any(f":{port} " in ln for ln in out.splitlines())
+
+missing = []
+for port, label in ((4000, "routellm"), (3128, "Squid"), (14000, "resurrection-hub")):
+    if tcp_listening(port):
+        print(f"OK host :{port} TCP ({label})")
+    else:
+        missing.append(f":{port} TCP ({label})")
+for port, label in ((1812, "auth"), (1813, "acct")):
+    if udp_listening(port):
+        print(f"OK host :{port} UDP (FreeRADIUS {label})")
+    else:
+        missing.append(f":{port} UDP (FreeRADIUS {label})")
+
+if missing:
+    print("ERROR: cylon hostPorts not listening — kind-config extraPortMappings + cluster recreate:", file=sys.stderr)
+    for m in missing:
+        print(f"  {m}", file=sys.stderr)
+    sys.exit(1)
+print("cylon-infra hostPorts :4000 :3128 :14000 + :1812 :1813 UDP OK")
+PY''',
+    labels=['cylon-infra'],
+    auto_init=True,
+)
+
+local_resource(
+    'cylon-infra-apply',
+    cmd='kubectl apply -k "%s"' % _cylon_infra,
+    deps=[_cylon_infra],
+    labels=['cylon-infra'],
+    resource_deps=['cylon-infra-preflight'],
+    auto_init=True,
+)
+
+# Deployments/Services are auto-discovered by name; only attach orphan ConfigMaps via
+# objects= (ConfigMaps are not auto-linked to their Deployment resource in Tilt).
+# FreeRADIUS UDP via kind-config hostPort 1812/1813.
+k8s_resource(
+    'freeradius',
+    labels=['cylon-infra'],
+    resource_deps=['cylon-infra-apply'],
+    objects=['freeradius-config:ConfigMap:cylon'],
+    auto_init=True,
+)
+
+k8s_resource(
+    'proxy',
+    labels=['cylon-infra'],
+    resource_deps=['freeradius', 'cylon-infra-apply'],
+    objects=['squid-config:ConfigMap:cylon'],
+    auto_init=True,
+)
+k8s_resource(
+    'routellm',
+    labels=['cylon-infra'],
+    resource_deps=['cylon-infra-apply'],
+    objects=['routellm-config:ConfigMap:cylon'],
+    auto_init=True,
+)
+
 # --- gcp (namespace: gcp) — single label: "gcp"
 #k8s_resource('pubsub-emulator', labels=['gcp'])
 #k8s_resource('datastore-emulator', labels=['gcp'])
@@ -239,14 +322,15 @@ k8s_resource(
 
 local_resource(
     'cluster-info',
-    'kubectl config current-context && kubectl get ns data observability pipeline scheduling gcp ai 2>/dev/null && kubectl get pods -n data -l app=postgres 2>/dev/null; kubectl get pods -n observability 2>/dev/null || true',
+    'kubectl config current-context && kubectl get ns data observability pipeline scheduling gcp ai cylon 2>/dev/null && kubectl get pods -n data -l app=postgres 2>/dev/null; kubectl get pods -n observability 2>/dev/null || true',
     allow_parallel=True,
 )
 
 print('')
 print('  Shared Kind cluster (kind-kind)')
 print('  kustomize ./k8s: Supabase + platform-data + observability (includes stack Namespaces)')
-print('  Tilt groups: data | observe | pipeline | scheduling | gcp (one label per resource)')
+print('  Tilt groups: data | observe | pipeline | scheduling | gcp | ai | cylon-infra (one label per resource)')
+print('  Cylon infra port-forwards: routellm %s:4000, Squid %s:3128, FreeRADIUS %s:1812/:1813 UDP' % (host_lan_ip, host_lan_ip, host_lan_ip))
 print('  Host DB/Redis (when port-forwards enabled): primary :5432, replica-0 :6544, replica-1 :6546, redis :6545')
 print('  Tilt UI port: %s (override: tilt up -- --tilt_port=...)' % tilt_port)
 print('')

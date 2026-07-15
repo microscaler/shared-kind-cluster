@@ -92,6 +92,28 @@ nodes:
       - containerPort: 30091
         hostPort: 9091
         protocol: TCP
+
+      # Cylon infra — NodePort hostPorts (routing-first; Multipass gw 10.177.76.1 reaches these)
+      - containerPort: 30400
+        hostPort: 4000
+        protocol: TCP
+        listenAddress: "0.0.0.0"
+      - containerPort: 30428
+        hostPort: 3128
+        protocol: TCP
+        listenAddress: "0.0.0.0"
+      - containerPort: 31400
+        hostPort: 14000
+        protocol: TCP
+        listenAddress: "0.0.0.0"
+      - containerPort: 31812
+        hostPort: 1812
+        protocol: UDP
+        listenAddress: "0.0.0.0"
+      - containerPort: 31813
+        hostPort: 1813
+        protocol: UDP
+        listenAddress: "0.0.0.0"
       # Jaeger
       - containerPort: 31166
         hostPort: 16686

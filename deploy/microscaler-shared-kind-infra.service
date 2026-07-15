@@ -1,0 +1,19 @@
+[Unit]
+Description=Shared Kind Cluster Infrastructure (registry + cluster + wire + namespaces)
+After=network-online.target docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sh -c "docker info >/dev/null 2>&1"
+ExecStart=/home/casibbald/.local/share/microscaler/shared-kind/cluster-start.sh
+ExecStop=/home/casibbald/.local/share/microscaler/shared-kind/cluster-stop.sh
+Environment=PATH=/snap/bin:/usr/local/bin:/usr/bin:/bin
+Environment=KIND_MEMORY_LIMIT_GIB=64
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=shared-kind-infra
+
+[Install]
+WantedBy=default.target

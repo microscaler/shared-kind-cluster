@@ -62,3 +62,13 @@ metadata:
     managed-by: tilt
   annotations:
     description: "GCP emulators namespace for local development (Pub/Sub, Datastore, Bigtable, Cloud Functions)"
+---
+# Cylon shared infra (routellm, Squid AAA proxy, FreeRADIUS)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cylon
+  labels:
+    app.kubernetes.io/part-of: microscaler-shared-cluster
+  annotations:
+    description: "Cylon shared infra — LiteLLM routellm, Squid proxy, FreeRADIUS (Tilt port-forwards :4000, :3128)"

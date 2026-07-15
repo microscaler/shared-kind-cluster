@@ -9,3 +9,4 @@ resources:
   - platform-data
   - observability
   - ai
+  - cylon-infra
